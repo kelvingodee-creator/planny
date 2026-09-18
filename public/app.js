@@ -31,6 +31,7 @@ const els = {
   board: document.getElementById("board"),
   viewEyebrow: document.getElementById("viewEyebrow"),
   viewTitle: document.getElementById("viewTitle"),
+  projectCategoriesButton: document.getElementById("projectCategoriesButton"),
   accountButton: document.getElementById("accountButton"),
   logoutButton: document.getElementById("logoutButton"),
   settingsButton: document.getElementById("settingsButton"),
@@ -45,18 +46,23 @@ const els = {
   taskDialog: document.getElementById("taskDialog"),
   closeTaskButton: document.getElementById("closeTaskButton"),
   projectDialog: document.getElementById("projectDialog"),
+  categoryDialog: document.getElementById("categoryDialog"),
   archiveDialog: document.getElementById("archiveDialog"),
   teamDialog: document.getElementById("teamDialog"),
   taskForm: document.getElementById("taskForm"),
   projectForm: document.getElementById("projectForm"),
+  categoryForm: document.getElementById("categoryForm"),
   connectionForm: document.getElementById("connectionForm"),
   teamAccountForm: document.getElementById("teamAccountForm"),
   taskAssignees: document.getElementById("taskAssignees"),
   projectMembers: document.getElementById("projectMembers"),
   taskDialogTitle: document.getElementById("taskDialogTitle"),
   projectDialogTitle: document.getElementById("projectDialogTitle"),
+  projectCategoryRows: document.getElementById("projectCategoryRows"),
   deleteTaskButton: document.getElementById("deleteTaskButton"),
   deleteProjectButton: document.getElementById("deleteProjectButton"),
+  closeCategoryButton: document.getElementById("closeCategoryButton"),
+  categoryCancelButton: document.getElementById("categoryCancelButton"),
   closeArchiveButton: document.getElementById("closeArchiveButton"),
   closeTeamButton: document.getElementById("closeTeamButton"),
   archiveList: document.getElementById("archiveList"),
@@ -180,6 +186,13 @@ function normalizeProject(project, userIds) {
     color: project.color || "sea",
     summary: project.summary || "",
     members: members.length ? members : ["kelvin"],
+    categories: Array.isArray(project.categories)
+      ? project.categories.map((category, index) => ({
+        id: category.id || `category-${index + 1}`,
+        label: String(category.label || `Categorie ${index + 1}`).trim(),
+        color: category.color || defaultCategories[index % defaultCategories.length].color
+      }))
+      : null,
     timerStartedAt: project.timerStartedAt || "",
     timeEntries: (project.timeEntries || []).map(normalizeTimeEntry),
     tasks: (project.tasks || []).map(task => normalizeTask(task))
@@ -260,6 +273,7 @@ function renderBoard() {
   const { eyebrow, title } = currentHeader();
   els.viewEyebrow.textContent = eyebrow;
   els.viewTitle.textContent = title;
+  els.projectCategoriesButton.hidden = state.activeView.type !== "project";
 
   if (state.activeView.type === "settings") {
     renderSettings();
@@ -295,7 +309,7 @@ function renderProjectView(project) {
   }
   const taskGrid = document.createElement("div");
   taskGrid.className = "priority-grid";
-  taskGrid.replaceChildren(...currentCategories().map(category => priorityColumn(project, category.id, category.label, category.color)));
+  taskGrid.replaceChildren(...categoriesForProject(project).map(category => priorityColumn(project, category.id, category.label, category.color)));
   els.board.className = "board project-board";
   els.board.replaceChildren(taskGrid, timeSessionsPanel(project));
 }
@@ -507,9 +521,10 @@ function openTaskDialog({ projectId = null, priority = "medium", taskId = null, 
   els.deleteTaskButton.hidden = !task;
   syncProjectOptions(fallbackProject.id);
   els.taskForm.elements.projectId.value = fallbackProject.id;
-  syncPriorityOptions(task?.priority || priority);
+  syncPriorityOptions(task?.priority || priority, fallbackProject);
   const selectedPriority = task?.priority || priority;
-  els.taskForm.elements.priority.value = currentCategories().some(category => category.id === selectedPriority) ? selectedPriority : currentCategories()[0].id;
+  const categories = categoriesForProject(fallbackProject);
+  els.taskForm.elements.priority.value = categories.some(category => category.id === selectedPriority) ? selectedPriority : categories[0].id;
   els.taskForm.elements.title.value = task?.title || "";
   els.taskForm.elements.note.value = task?.note || "";
   els.taskForm.elements.deadline.value = task?.deadline || "";
@@ -542,8 +557,8 @@ function syncProjectOptions(selectedId) {
   }));
 }
 
-function syncPriorityOptions(selectedId) {
-  els.taskForm.elements.priority.replaceChildren(...currentCategories().map(category => {
+function syncPriorityOptions(selectedId, project = null) {
+  els.taskForm.elements.priority.replaceChildren(...categoriesForProject(project).map(category => {
     const option = document.createElement("option");
     option.value = category.id;
     option.textContent = category.label;
@@ -560,6 +575,28 @@ function currentCategories() {
     label: String(category.label || `Categorie ${index + 1}`).trim(),
     color: category.color || defaultCategories[index % defaultCategories.length].color
   }));
+}
+
+function categoriesForProject(project) {
+  if (Array.isArray(project?.categories) && project.categories.length) return project.categories;
+  return currentCategories();
+}
+
+function openProjectCategories(projectId = state.activeView.id) {
+  const project = projectById(projectId);
+  if (!project || !els.categoryDialog) return;
+  els.categoryForm.dataset.projectId = project.id;
+  els.projectCategoryRows.replaceChildren(...categoriesForProject(project).map((category, index) => {
+    const row = document.createElement("div");
+    row.className = "project-category-row";
+    row.innerHTML = `
+      <span class="settings-index">${index + 1}</span>
+      <label><span>Kopje</span><input name="categoryLabel-${index}" value="${escapeHtml(category.label)}" maxlength="32" /></label>
+      <label class="color-field"><span>Kleur</span><input name="categoryColor-${index}" type="color" value="${escapeHtml(category.color)}" /></label>
+    `;
+    return row;
+  }));
+  els.categoryDialog.showModal();
 }
 
 function showTeamTasks() {
@@ -935,6 +972,7 @@ els.connectionForm.addEventListener("submit", async event => {
 
 els.taskForm.elements.projectId.addEventListener("change", event => {
   const project = projectById(event.target.value);
+  syncPriorityOptions(els.taskForm.elements.priority.value, project);
   renderTaskAssignees(project, defaultAssignees(project));
 });
 
@@ -1034,6 +1072,24 @@ els.deleteProjectButton.addEventListener("click", () => {
   state.activeView = { type: "all", id: "all" };
   els.projectDialog.close();
   saveState().catch(showError);
+});
+
+els.projectCategoriesButton.addEventListener("click", () => openProjectCategories());
+els.closeCategoryButton?.addEventListener("click", () => els.categoryDialog.close());
+els.categoryCancelButton?.addEventListener("click", () => els.categoryDialog.close());
+els.categoryForm?.addEventListener("submit", event => {
+  event.preventDefault();
+  const project = projectById(els.categoryForm.dataset.projectId);
+  if (!project) return;
+  const form = new FormData(els.categoryForm);
+  const categories = categoriesForProject(project);
+  project.categories = categories.map((category, index) => ({
+    ...category,
+    label: String(form.get(`categoryLabel-${index}`) || category.label).trim() || category.label,
+    color: String(form.get(`categoryColor-${index}`) || category.color)
+  }));
+  els.categoryDialog.close();
+  saveState().then(render).catch(showError);
 });
 
 els.addTaskButton.addEventListener("click", () => openTaskDialog(taskDefaultsFromView()));
