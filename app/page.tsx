@@ -60,7 +60,10 @@ export default function Home() {
           <header className="topbar">
             <div>
               <p className="eyebrow" id="viewEyebrow">Team workspace</p>
-              <h1 id="viewTitle">All</h1>
+              <div className="title-line">
+                <h1 id="viewTitle">All</h1>
+                <button className="icon-button project-category-button" id="projectCategoriesButton" type="button" title="Kopjes van dit project aanpassen" aria-label="Kopjes van dit project aanpassen" hidden>✎</button>
+              </div>
             </div>
             <div className="top-actions">
               <label className="search-box">
@@ -181,6 +184,25 @@ export default function Home() {
               <span className="dialog-spacer"></span>
               <button className="soft-button" value="cancel" type="submit">Annuleer</button>
               <button className="primary-button" type="submit">Bewaar project</button>
+            </div>
+          </form>
+        </dialog>
+
+        <dialog id="categoryDialog">
+          <form method="dialog" className="dialog-card" id="categoryForm">
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">Projectinstelling</p>
+                <h2>Kopjes aanpassen</h2>
+              </div>
+              <button className="icon-button" id="closeCategoryButton" type="button" aria-label="Sluiten">×</button>
+            </div>
+            <p className="dialog-copy">Deze namen gelden alleen binnen dit project.</p>
+            <div id="projectCategoryRows" className="project-category-rows"></div>
+            <div className="dialog-actions">
+              <span className="dialog-spacer"></span>
+              <button className="soft-button" id="categoryCancelButton" type="button">Annuleer</button>
+              <button className="primary-button" id="saveCategoryButton" type="submit">Bewaar kopjes</button>
             </div>
           </form>
         </dialog>
