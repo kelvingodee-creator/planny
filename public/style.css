@@ -352,6 +352,20 @@ button {
   letter-spacing: 0;
 }
 
+.title-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.project-category-button {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+
 .eyebrow,
 .mini-label {
   margin: 0 0 8px;
@@ -1134,6 +1148,51 @@ dialog[open] .dialog-card {
 
 .dialog-card h2 {
   margin: 0;
+}
+
+.dialog-copy {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.project-category-rows {
+  display: grid;
+  gap: 12px;
+}
+
+.project-category-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 90px;
+  align-items: end;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.project-category-row label {
+  display: grid;
+  gap: 7px;
+}
+
+.project-category-row input[type="text"],
+.project-category-row input:not([type]) {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+}
+
+.project-category-row input[type="color"] {
+  width: 64px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .dialog-card label {
