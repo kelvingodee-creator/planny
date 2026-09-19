@@ -1378,6 +1378,8 @@ function navButton(label, unread, active, onClick) {
 function projectNavItem(project) {
   const item = document.createElement("div");
   item.className = "nav-project-item";
+  item.draggable = true;
+  item.title = "Sleep dit project naar een map";
   const active = state.activeView.type === "project" && state.activeView.id === project.id;
   const projectButton = navButton(projectInitials(project), hasUnreadProjectTasks(project), active, () => {
     state.activeView = { type: "project", id: project.id };
@@ -1385,24 +1387,13 @@ function projectNavItem(project) {
     render();
   });
   projectButton.title = project.name;
-  const timerButton = document.createElement("button");
-  timerButton.className = "rail-mini-button";
-  timerButton.type = "button";
-  timerButton.title = project.timerStartedAt ? "Stop timer" : "Start timer";
-  timerButton.textContent = project.timerStartedAt ? "■" : "▶";
-  timerButton.addEventListener("click", () => toggleTimer(project.id));
-
-  const addButton = document.createElement("button");
-  addButton.className = "rail-mini-button";
-  addButton.type = "button";
-  addButton.title = "Tijd achteraf toevoegen";
-  addButton.textContent = "+";
-  addButton.addEventListener("click", () => addManualTime(project.id));
-
-  const controls = document.createElement("div");
-  controls.className = "rail-timer-actions";
-  controls.append(timerButton, addButton);
-  item.append(projectButton, controls);
+  item.append(projectButton);
+  item.addEventListener("dragstart", event => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-planny-project", project.id);
+    item.classList.add("is-dragging");
+  });
+  item.addEventListener("dragend", () => item.classList.remove("is-dragging"));
   enableTaskDropTarget(item, { projectId: project.id });
   return item;
 }
@@ -1416,10 +1407,11 @@ function folderNavItem(folder, projects) {
   heading.className = "nav-folder-heading";
   heading.title = "Dubbelklik om map te openen of te sluiten";
   heading.innerHTML = `<span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span><span>${escapeHtml(folder.name)}</span><small>${projects.length}</small>`;
-  heading.addEventListener("dblclick", () => {
+  heading.addEventListener("click", () => {
     folder.collapsed = !folder.collapsed;
     saveState().catch(showError);
   });
+  enableProjectDropTarget(wrapper, folder);
   wrapper.append(heading);
   if (!folder.collapsed) {
     const children = document.createElement("div");
@@ -1428,6 +1420,31 @@ function folderNavItem(folder, projects) {
     wrapper.append(children);
   }
   return wrapper;
+}
+
+function enableProjectDropTarget(element, folder) {
+  element.addEventListener("dragover", event => {
+    if (!event.dataTransfer.types.includes("application/x-planny-project")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    element.classList.add("is-project-drop-target");
+  });
+  element.addEventListener("dragleave", event => {
+    if (!element.contains(event.relatedTarget)) element.classList.remove("is-project-drop-target");
+  });
+  element.addEventListener("drop", event => {
+    event.preventDefault();
+    element.classList.remove("is-project-drop-target");
+    const projectId = event.dataTransfer.getData("application/x-planny-project");
+    if (!projectId || !projectsForCurrentUser().some(project => project.id === projectId)) return;
+    state.data.folders = (state.data.folders || []).map(item => ({
+      ...item,
+      projectIds: item.id === folder.id
+        ? unique([...item.projectIds, projectId])
+        : item.projectIds.filter(id => id !== projectId)
+    }));
+    saveState().catch(showError);
+  });
 }
 
 function openFolderDialog() {
