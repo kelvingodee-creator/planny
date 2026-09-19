@@ -28,6 +28,7 @@ const els = {
   loginForm: document.getElementById("loginForm"),
   signupForm: document.getElementById("signupForm"),
   navList: document.getElementById("navList"),
+  addFolderButton: document.getElementById("addFolderButton"),
   board: document.getElementById("board"),
   viewEyebrow: document.getElementById("viewEyebrow"),
   viewTitle: document.getElementById("viewTitle"),
@@ -47,11 +48,13 @@ const els = {
   closeTaskButton: document.getElementById("closeTaskButton"),
   projectDialog: document.getElementById("projectDialog"),
   categoryDialog: document.getElementById("categoryDialog"),
+  folderDialog: document.getElementById("folderDialog"),
   archiveDialog: document.getElementById("archiveDialog"),
   teamDialog: document.getElementById("teamDialog"),
   taskForm: document.getElementById("taskForm"),
   projectForm: document.getElementById("projectForm"),
   categoryForm: document.getElementById("categoryForm"),
+  folderForm: document.getElementById("folderForm"),
   connectionForm: document.getElementById("connectionForm"),
   teamAccountForm: document.getElementById("teamAccountForm"),
   taskAssignees: document.getElementById("taskAssignees"),
@@ -63,6 +66,9 @@ const els = {
   deleteProjectButton: document.getElementById("deleteProjectButton"),
   closeCategoryButton: document.getElementById("closeCategoryButton"),
   categoryCancelButton: document.getElementById("categoryCancelButton"),
+  closeFolderButton: document.getElementById("closeFolderButton"),
+  folderCancelButton: document.getElementById("folderCancelButton"),
+  folderProjects: document.getElementById("folderProjects"),
   closeArchiveButton: document.getElementById("closeArchiveButton"),
   closeTeamButton: document.getElementById("closeTeamButton"),
   archiveList: document.getElementById("archiveList"),
@@ -135,8 +141,14 @@ function normalizeState(data) {
     ...data,
     version: data.version || 1,
     users,
-    connections: (data.connections || []).map(normalizeConnection),
-    userSettings: data.userSettings || {},
+  connections: (data.connections || []).map(normalizeConnection),
+  userSettings: data.userSettings || {},
+    folders: (data.folders || []).map(folder => ({
+      id: folder.id || createId("folder"),
+      name: String(folder.name || "Nieuwe map").trim() || "Nieuwe map",
+      projectIds: unique(Array.isArray(folder.projectIds) ? folder.projectIds.map(String) : []),
+      collapsed: Boolean(folder.collapsed)
+    })),
     currentUserId: data.currentUserId || "kelvin",
     projects: (data.projects || []).map(project => normalizeProject(project, userIds))
   };
@@ -262,8 +274,16 @@ function renderNav() {
     render();
   })];
 
-  for (const project of projectsForCurrentUser()) {
-    items.push(projectNavItem(project));
+  const projects = projectsForCurrentUser();
+  const assigned = new Set();
+  for (const folder of state.data.folders || []) {
+    const folderProjects = projects.filter(project => folder.projectIds.includes(project.id));
+    folderProjects.forEach(project => assigned.add(project.id));
+    items.push(folderNavItem(folder, folderProjects));
+  }
+
+  for (const project of projects) {
+    if (!assigned.has(project.id)) items.push(projectNavItem(project));
   }
 
   els.navList.replaceChildren(...items);
@@ -273,7 +293,6 @@ function renderBoard() {
   const { eyebrow, title } = currentHeader();
   els.viewEyebrow.textContent = eyebrow;
   els.viewTitle.textContent = title;
-  els.projectCategoriesButton.hidden = state.activeView.type !== "project";
 
   if (state.activeView.type === "settings") {
     renderSettings();
@@ -342,17 +361,61 @@ function priorityColumn(project, priority, label, color) {
   const tasks = openTasks(project).filter(task => task.priority === priority);
   section.innerHTML = `
     <div class="column-head" style="--category-color: ${escapeHtml(color)}">
-      <h2>${escapeHtml(label)}</h2>
+      <h2 class="editable-category-title" title="Dubbelklik om dit kopje te hernoemen">${escapeHtml(label)}</h2>
       <span>${tasks.length}</span>
       <button type="button" title="Taak toevoegen">+</button>
     </div>
     <div class="column-scroll"></div>
   `;
+  const heading = section.querySelector(".editable-category-title");
+  heading.addEventListener("dblclick", () => beginCategoryEdit(project, priority, heading));
   section.querySelector("button").addEventListener("click", () => openTaskDialog({ projectId: project.id, priority }));
   const scroll = section.querySelector(".column-scroll");
   scroll.replaceChildren(...(tasks.length ? tasks.map(task => taskCard(project, task, false)) : [emptyMiniTask(project, priority)]));
   enableTaskDropTarget(scroll, { projectId: project.id, priority });
   return section;
+}
+
+function beginCategoryEdit(project, categoryId, heading) {
+  if (heading.isContentEditable) return;
+  heading.contentEditable = "true";
+  heading.classList.add("is-editing");
+  heading.focus();
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(heading);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  const finish = () => {
+    heading.removeEventListener("blur", finish);
+    heading.removeEventListener("keydown", onKeyDown);
+    heading.contentEditable = "false";
+    heading.classList.remove("is-editing");
+    const label = heading.textContent.trim();
+    if (!label) {
+      render();
+      return;
+    }
+    const categories = categoriesForProject(project).map(category => ({ ...category }));
+    const category = categories.find(item => item.id === categoryId);
+    if (!category || category.label === label) return;
+    category.label = label;
+    project.categories = categories;
+    saveState().catch(showError);
+  };
+  const onKeyDown = event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      heading.blur();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      render();
+    }
+  };
+  heading.addEventListener("blur", finish);
+  heading.addEventListener("keydown", onKeyDown);
 }
 
 function taskCard(project, task, compact) {
@@ -1074,9 +1137,23 @@ els.deleteProjectButton.addEventListener("click", () => {
   saveState().catch(showError);
 });
 
-els.projectCategoriesButton.addEventListener("click", () => openProjectCategories());
+els.projectCategoriesButton?.addEventListener("click", () => openProjectCategories());
 els.closeCategoryButton?.addEventListener("click", () => els.categoryDialog.close());
 els.categoryCancelButton?.addEventListener("click", () => els.categoryDialog.close());
+els.addFolderButton?.addEventListener("click", openFolderDialog);
+els.closeFolderButton?.addEventListener("click", () => els.folderDialog.close());
+els.folderCancelButton?.addEventListener("click", () => els.folderDialog.close());
+els.folderForm?.addEventListener("submit", event => {
+  event.preventDefault();
+  const form = new FormData(els.folderForm);
+  const projectIds = form.getAll("projectIds").map(String);
+  const name = String(form.get("name") || "").trim();
+  if (!name) return;
+  state.data.folders = state.data.folders || [];
+  state.data.folders.push({ id: createId("folder"), name, projectIds, collapsed: false });
+  els.folderDialog.close();
+  saveState().catch(showError);
+});
 els.categoryForm?.addEventListener("submit", event => {
   event.preventDefault();
   const project = projectById(els.categoryForm.dataset.projectId);
@@ -1328,6 +1405,40 @@ function projectNavItem(project) {
   item.append(projectButton, controls);
   enableTaskDropTarget(item, { projectId: project.id });
   return item;
+}
+
+function folderNavItem(folder, projects) {
+  const wrapper = document.createElement("section");
+  wrapper.className = "nav-folder";
+  wrapper.dataset.collapsed = String(folder.collapsed);
+  const heading = document.createElement("button");
+  heading.type = "button";
+  heading.className = "nav-folder-heading";
+  heading.title = "Dubbelklik om map te openen of te sluiten";
+  heading.innerHTML = `<span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span><span>${escapeHtml(folder.name)}</span><small>${projects.length}</small>`;
+  heading.addEventListener("dblclick", () => {
+    folder.collapsed = !folder.collapsed;
+    saveState().catch(showError);
+  });
+  wrapper.append(heading);
+  if (!folder.collapsed) {
+    const children = document.createElement("div");
+    children.className = "nav-folder-projects";
+    children.replaceChildren(...projects.map(projectNavItem));
+    wrapper.append(children);
+  }
+  return wrapper;
+}
+
+function openFolderDialog() {
+  els.folderForm.reset();
+  els.folderProjects.replaceChildren(...projectsForCurrentUser().map(project => {
+    const label = document.createElement("label");
+    label.className = "check-pill";
+    label.innerHTML = `<input type="checkbox" name="projectIds" value="${escapeHtml(project.id)}" /><span>${escapeHtml(project.name)}</span>`;
+    return label;
+  }));
+  els.folderDialog.showModal();
 }
 
 function projectInitials(project) {
