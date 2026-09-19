@@ -212,7 +212,7 @@ button {
 
 .rail {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 22px;
   min-height: 0;
   padding: 22px 16px;
@@ -228,6 +228,35 @@ button {
   object-fit: cover;
   background: #000;
   box-shadow: 0 14px 44px rgba(16, 91, 255, 0.22);
+}
+
+.rail-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rail-section-add {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.rail-section-add:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .nav-list {
@@ -375,6 +404,12 @@ button {
   display: grid;
   gap: 7px;
   justify-items: center;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.nav-project-item.is-dragging {
+  opacity: 0.45;
+  transform: scale(0.97);
 }
 
 .rail-timer-actions {
@@ -1497,6 +1532,17 @@ legend {
     border-radius: 14px;
   }
 
+  .rail-section-head {
+    flex: 0 0 auto;
+    gap: 4px;
+    font-size: 0.62rem;
+  }
+
+  .rail-section-add {
+    width: 26px;
+    height: 30px;
+  }
+
   .nav-list {
     display: flex;
     flex: 1 1 auto;
@@ -1554,7 +1600,7 @@ legend {
     padding: 0 8px;
   }
 
-  .nav-folder-projects {
+.nav-folder-projects {
     display: flex;
     flex: 0 0 auto;
     gap: 8px;
@@ -1726,4 +1772,10 @@ legend {
   .dialog-actions > button {
     min-height: 38px;
   }
+}
+
+.nav-folder.is-project-drop-target .nav-folder-heading {
+  border-color: var(--cyan);
+  background: rgba(140, 207, 255, 0.16);
+  box-shadow: 0 0 0 3px rgba(140, 207, 255, 0.13);
 }
