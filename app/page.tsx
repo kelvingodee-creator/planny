@@ -53,7 +53,10 @@ export default function Home() {
         <aside className="rail" aria-label="Navigatie">
           <img className="rail-logo" src="/assets/planny-tune-logo-rail.png" alt="Planny" />
           <nav id="navList" className="nav-list"></nav>
-          <button className="rail-add" id="quickAddButton" type="button" title="Nieuwe taak">+</button>
+          <div className="rail-bottom-actions">
+            <button className="rail-folder-add" id="addFolderButton" type="button" title="Nieuwe map">+ Map</button>
+            <button className="rail-add" id="quickAddButton" type="button" title="Nieuwe taak">+</button>
+          </div>
         </aside>
 
         <main className="workspace">
@@ -62,7 +65,6 @@ export default function Home() {
               <p className="eyebrow" id="viewEyebrow">Team workspace</p>
               <div className="title-line">
                 <h1 id="viewTitle">All</h1>
-                <button className="icon-button project-category-button" id="projectCategoriesButton" type="button" title="Kopjes van dit project aanpassen" aria-label="Kopjes van dit project aanpassen" hidden>✎</button>
               </div>
             </div>
             <div className="top-actions">
@@ -203,6 +205,31 @@ export default function Home() {
               <span className="dialog-spacer"></span>
               <button className="soft-button" id="categoryCancelButton" type="button">Annuleer</button>
               <button className="primary-button" id="saveCategoryButton" type="submit">Bewaar kopjes</button>
+            </div>
+          </form>
+        </dialog>
+
+        <dialog id="folderDialog">
+          <form method="dialog" className="dialog-card" id="folderForm">
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">Sidebar</p>
+                <h2>Nieuwe map</h2>
+              </div>
+              <button className="icon-button" id="closeFolderButton" type="button" aria-label="Sluiten">×</button>
+            </div>
+            <label>
+              <span>Naam van de map</span>
+              <input name="name" required maxLength={60} placeholder="Bijvoorbeeld Team projecten" />
+            </label>
+            <fieldset>
+              <legend>Projecten in deze map</legend>
+              <div id="folderProjects" className="check-grid"></div>
+            </fieldset>
+            <div className="dialog-actions">
+              <span className="dialog-spacer"></span>
+              <button className="soft-button" id="folderCancelButton" type="button">Annuleer</button>
+              <button className="primary-button" type="submit">Bewaar map</button>
             </div>
           </form>
         </dialog>
