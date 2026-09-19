@@ -54,6 +54,7 @@ export default function Home() {
           <img className="rail-logo" src="/assets/planny-tune-logo-rail.png" alt="Planny" />
           <div className="rail-section-head">
             <span>Projects</span>
+            <button className="rail-section-more" id="projectsMoreButton" type="button" title="Meer projectopties" aria-label="Meer projectopties">…</button>
             <button className="rail-section-add" id="addFolderButton" type="button" title="Nieuwe map" aria-label="Nieuwe map">+</button>
           </div>
           <nav id="navList" className="nav-list"></nav>
