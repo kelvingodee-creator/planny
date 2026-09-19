@@ -1381,11 +1381,12 @@ function projectNavItem(project) {
   item.draggable = true;
   item.title = "Sleep dit project naar een map";
   const active = state.activeView.type === "project" && state.activeView.id === project.id;
-  const projectButton = navButton(projectInitials(project), hasUnreadProjectTasks(project), active, () => {
+  const projectButton = navButton(project.name, hasUnreadProjectTasks(project), active, () => {
     state.activeView = { type: "project", id: project.id };
     markProjectSeen(project.id);
     render();
   });
+  projectButton.classList.add("nav-project-button");
   projectButton.title = project.name;
   item.append(projectButton);
   item.addEventListener("dragstart", event => {
@@ -1406,7 +1407,7 @@ function folderNavItem(folder, projects) {
   heading.type = "button";
   heading.className = "nav-folder-heading";
   heading.title = "Dubbelklik om map te openen of te sluiten";
-  heading.innerHTML = `<span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span><span>${escapeHtml(folder.name)}</span><small>${projects.length}</small>`;
+  heading.innerHTML = `<span class="folder-icon" aria-hidden="true">▱</span><span>${escapeHtml(folder.name)}</span><span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span>`;
   heading.addEventListener("click", () => {
     folder.collapsed = !folder.collapsed;
     saveState().catch(showError);
