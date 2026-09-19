@@ -52,11 +52,12 @@ export default function Home() {
       <div id="planny-app" hidden>
         <aside className="rail" aria-label="Navigatie">
           <img className="rail-logo" src="/assets/planny-tune-logo-rail.png" alt="Planny" />
-          <nav id="navList" className="nav-list"></nav>
-          <div className="rail-bottom-actions">
-            <button className="rail-folder-add" id="addFolderButton" type="button" title="Nieuwe map">+ Map</button>
-            <button className="rail-add" id="quickAddButton" type="button" title="Nieuwe taak">+</button>
+          <div className="rail-section-head">
+            <span>Projects</span>
+            <button className="rail-section-add" id="addFolderButton" type="button" title="Nieuwe map" aria-label="Nieuwe map">+</button>
           </div>
+          <nav id="navList" className="nav-list"></nav>
+          <button className="rail-add" id="quickAddButton" type="button" title="Nieuwe taak">+</button>
         </aside>
 
         <main className="workspace">
