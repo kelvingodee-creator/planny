@@ -1103,7 +1103,7 @@ button:active {
 }
 
 .time-panel {
-  display: block;
+  display: grid;
   gap: 18px;
   min-height: 0;
   padding: 18px;
@@ -1114,6 +1114,25 @@ button:active {
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.time-panel-status {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.time-panel-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.time-toggle-button,
+.time-add-button {
+  min-height: 34px;
+  padding: 0 11px;
+  font-size: 0.78rem;
 }
 
 .time-panel h2,
@@ -1189,6 +1208,10 @@ button:active {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
+}
+
+.time-entry-controls .soft-button {
+  cursor: pointer;
 }
 
 .time-entry-controls .soft-button,
