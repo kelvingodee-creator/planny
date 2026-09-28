@@ -236,6 +236,42 @@ export default function Home() {
           </form>
         </dialog>
 
+        <dialog id="timeEntryDialog">
+          <form method="dialog" className="dialog-card" id="timeEntryForm">
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">Tijdregistratie</p>
+                <h2 id="timeEntryDialogTitle">Tijd toevoegen</h2>
+              </div>
+              <button className="icon-button" id="closeTimeEntryButton" type="button" aria-label="Sluiten">×</button>
+            </div>
+            <label>
+              <span>Naam van de sessie</span>
+              <input name="name" required maxLength={100} placeholder="Bijvoorbeeld Ontwerpwerk" />
+            </label>
+            <div className="field-row">
+              <label>
+                <span>Datum en starttijd</span>
+                <input name="startedAt" type="datetime-local" />
+              </label>
+              <label>
+                <span>Uren</span>
+                <input name="hours" type="number" min="0" max="99" step="1" value="0" />
+              </label>
+              <label>
+                <span>Minuten</span>
+                <input name="minutes" type="number" min="0" max="59" step="1" value="30" />
+              </label>
+            </div>
+            <p className="dialog-copy">Gebruik dit ook als je vergeten bent de timer aan te zetten.</p>
+            <div className="dialog-actions">
+              <span className="dialog-spacer"></span>
+              <button className="soft-button" id="timeEntryCancelButton" type="button">Annuleer</button>
+              <button className="primary-button" type="submit">Bewaar sessie</button>
+            </div>
+          </form>
+        </dialog>
+
         <dialog id="teamDialog">
           <div className="dialog-card archive-card">
             <div className="dialog-head">
