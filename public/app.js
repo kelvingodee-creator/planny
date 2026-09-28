@@ -69,6 +69,11 @@ const els = {
   closeFolderButton: document.getElementById("closeFolderButton"),
   folderCancelButton: document.getElementById("folderCancelButton"),
   folderProjects: document.getElementById("folderProjects"),
+  timeEntryDialog: document.getElementById("timeEntryDialog"),
+  timeEntryForm: document.getElementById("timeEntryForm"),
+  timeEntryDialogTitle: document.getElementById("timeEntryDialogTitle"),
+  closeTimeEntryButton: document.getElementById("closeTimeEntryButton"),
+  timeEntryCancelButton: document.getElementById("timeEntryCancelButton"),
   closeArchiveButton: document.getElementById("closeArchiveButton"),
   closeTeamButton: document.getElementById("closeTeamButton"),
   archiveList: document.getElementById("archiveList"),
@@ -206,6 +211,7 @@ function normalizeProject(project, userIds) {
       }))
       : null,
     timerStartedAt: project.timerStartedAt || "",
+    timerAlertedAt: project.timerAlertedAt || "",
     timeEntries: (project.timeEntries || []).map(normalizeTimeEntry),
     tasks: (project.tasks || []).map(task => normalizeTask(task))
   };
@@ -522,10 +528,16 @@ function timeSessionsPanel(project) {
         <p class="eyebrow">Sessies</p>
         <h2>${escapeHtml(formatMinutes(totalMinutes))}</h2>
       </div>
-      ${project.timerStartedAt ? `<span class="live-pill">Loopt ${escapeHtml(formatMinutes(activeMinutes))}</span>` : ""}
+      <div class="time-panel-status">
+        ${project.timerStartedAt ? `<span class="live-pill">Loopt ${escapeHtml(formatMinutes(activeMinutes))}</span>` : `<span class="time-panel-hint">Nog niet actief</span>`}
+        <button class="${project.timerStartedAt ? "danger-button" : "primary-button"} time-toggle-button" type="button">${project.timerStartedAt ? "Stop timer" : "Start timer"}</button>
+        <button class="soft-button time-add-button" type="button">+ Tijd toevoegen</button>
+      </div>
     </div>
     <div class="time-entry-list"></div>
   `;
+  panel.querySelector(".time-toggle-button").addEventListener("click", () => toggleTimer(project.id));
+  panel.querySelector(".time-add-button").addEventListener("click", () => openTimeEntryDialog(project.id));
   const list = panel.querySelector(".time-entry-list");
   list.replaceChildren(...(entries.length ? entries.map(entry => timeEntryRow(project, entry)) : [emptyTimeRow()]));
   return panel;
@@ -544,8 +556,8 @@ function timeEntryRow(project, entry) {
       <button class="danger-button" type="button">Verwijder</button>
     </div>
   `;
-  row.querySelector(".time-entry-name").addEventListener("dblclick", () => renameTimeEntry(project.id, entry.id));
-  row.querySelector(".time-entry-controls .soft-button").addEventListener("click", () => editTimeEntryMinutes(project.id, entry.id));
+  row.querySelector(".time-entry-name").addEventListener("dblclick", () => openTimeEntryDialog(project.id, entry.id));
+  row.querySelector(".time-entry-controls .soft-button").addEventListener("click", () => openTimeEntryDialog(project.id, entry.id));
   row.querySelector(".danger-button").addEventListener("click", () => deleteTimeEntry(project.id, entry.id));
   return row;
 }
@@ -805,29 +817,41 @@ function toggleTimer(projectId) {
       createdAt: nowIso()
     });
     delete project.timerStartedAt;
+    delete project.timerAlertedAt;
   } else {
     project.timerStartedAt = nowIso();
+    delete project.timerAlertedAt;
   }
   project.updatedAt = nowIso();
   saveState().catch(showError);
 }
 
 function addManualTime(projectId) {
+  openTimeEntryDialog(projectId);
+}
+
+function openTimeEntryDialog(projectId, entryId = "") {
   const project = projectById(projectId);
-  const input = prompt(`Hoeveel minuten toevoegen aan ${project.name}?`);
-  if (!input) return;
-  const minutes = Number(input.replace(",", "."));
-  if (!Number.isFinite(minutes) || minutes <= 0) return;
-  project.timeEntries = project.timeEntries || [];
-  project.timeEntries.unshift({
-    id: createId("time"),
-    name: "Handmatig toegevoegd",
-    minutes: Math.round(minutes),
-    manual: true,
-    createdAt: nowIso()
-  });
-  project.updatedAt = nowIso();
-  saveState().catch(showError);
+  if (!project || !els.timeEntryDialog) return;
+  const entry = entryId ? timeEntryById(project, entryId) : null;
+  els.timeEntryForm.reset();
+  els.timeEntryForm.dataset.projectId = project.id;
+  els.timeEntryForm.dataset.entryId = entry?.id || "";
+  els.timeEntryDialogTitle.textContent = entry ? "Sessie aanpassen" : "Tijd toevoegen";
+  els.timeEntryForm.elements.name.value = entry?.name || "Werksessie";
+  els.timeEntryForm.elements.startedAt.value = toDateTimeLocal(entry?.start || "");
+  els.timeEntryForm.elements.hours.value = entry ? Math.floor(entry.minutes / 60) : 0;
+  els.timeEntryForm.elements.minutes.value = entry ? entry.minutes % 60 : 30;
+  els.timeEntryDialog.showModal();
+  els.timeEntryForm.elements.name.focus();
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = number => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function renameTimeEntry(projectId, entryId) {
@@ -1152,6 +1176,42 @@ els.folderForm?.addEventListener("submit", event => {
   state.data.folders = state.data.folders || [];
   state.data.folders.push({ id: createId("folder"), name, projectIds, collapsed: false });
   els.folderDialog.close();
+  saveState().catch(showError);
+});
+els.closeTimeEntryButton?.addEventListener("click", () => els.timeEntryDialog.close());
+els.timeEntryCancelButton?.addEventListener("click", () => els.timeEntryDialog.close());
+els.timeEntryForm?.addEventListener("submit", event => {
+  event.preventDefault();
+  const form = new FormData(els.timeEntryForm);
+  const project = projectById(els.timeEntryForm.dataset.projectId);
+  if (!project) return;
+  const entryId = els.timeEntryForm.dataset.entryId;
+  const hours = Math.max(0, Number(form.get("hours") || 0));
+  const minutes = Math.max(0, Number(form.get("minutes") || 0));
+  const totalMinutes = Math.round(hours * 60 + minutes);
+  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
+    showError(new Error("Vul minimaal één minuut in."));
+    return;
+  }
+  const start = form.get("startedAt") ? new Date(String(form.get("startedAt"))).toISOString() : nowIso();
+  const end = new Date(new Date(start).getTime() + totalMinutes * 60000).toISOString();
+  const payload = {
+    name: String(form.get("name") || "Werksessie").trim() || "Werksessie",
+    minutes: totalMinutes,
+    start,
+    end,
+    manual: true,
+    updatedAt: nowIso()
+  };
+  project.timeEntries = project.timeEntries || [];
+  if (entryId) {
+    const entry = timeEntryById(project, entryId);
+    if (entry) Object.assign(entry, payload);
+  } else {
+    project.timeEntries.unshift({ id: createId("time"), createdAt: nowIso(), ...payload });
+  }
+  project.updatedAt = nowIso();
+  els.timeEntryDialog.close();
   saveState().catch(showError);
 });
 els.categoryForm?.addEventListener("submit", event => {
@@ -1551,4 +1611,17 @@ function showError(error) {
   alert(error.message || "Er ging iets mis.");
 }
 
+function checkLongRunningTimers() {
+  if (!state.data) return;
+  const project = projectsForCurrentUser().find(item => item.timerStartedAt && activeTimerMinutes(item) >= 300 && item.timerAlertedAt !== item.timerStartedAt);
+  if (!project) return;
+  project.timerAlertedAt = project.timerStartedAt;
+  if (!confirm(`${project.name}: de timer loopt al 5 uur. Ben je nog aan het werk?`)) {
+    toggleTimer(project.id);
+    return;
+  }
+  saveState().catch(showError);
+}
+
 boot().catch(showError);
+window.setInterval(checkLongRunningTimers, 60000);
