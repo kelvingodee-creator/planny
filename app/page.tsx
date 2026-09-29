@@ -251,8 +251,8 @@ export default function Home() {
             </label>
             <div className="field-row">
               <label>
-                <span>Datum en starttijd</span>
-                <input name="startedAt" type="datetime-local" />
+                <span>Wanneer gewerkt? <em>(optioneel)</em></span>
+                <input name="workedOn" type="text" placeholder="bijv. 12 sep of vorige week" autoComplete="off" />
               </label>
               <label>
                 <span>Uren</span>
