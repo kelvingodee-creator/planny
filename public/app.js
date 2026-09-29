@@ -224,6 +224,7 @@ function normalizeTimeEntry(entry) {
     minutes: Math.max(1, Math.round(Number(entry.minutes || 1))),
     start: entry.start || "",
     end: entry.end || "",
+    dateLabel: String(entry.dateLabel || "").trim(),
     manual: Boolean(entry.manual),
     createdAt: entry.createdAt || entry.end || entry.start || nowIso(),
     updatedAt: entry.updatedAt || entry.createdAt || ""
@@ -841,7 +842,7 @@ function openTimeEntryDialog(projectId, entryId = "") {
   els.timeEntryForm.dataset.entryId = entry?.id || "";
   els.timeEntryDialogTitle.textContent = entry ? "Sessie aanpassen" : "Tijd toevoegen";
   els.timeEntryForm.elements.name.value = entry ? entry.name : "";
-  els.timeEntryForm.elements.startedAt.value = toDateTimeLocal(entry?.start || "");
+  els.timeEntryForm.elements.workedOn.value = entry?.dateLabel || toDateTimeLocal(entry?.start || "");
   els.timeEntryForm.elements.hours.value = entry ? String(Math.floor(entry.minutes / 60)) : "";
   els.timeEntryForm.elements.minutes.value = entry ? String(entry.minutes % 60) : "";
   els.timeEntryDialog.showModal();
@@ -1201,13 +1202,13 @@ els.timeEntryForm?.addEventListener("submit", event => {
     showError(new Error("Vul minimaal één minuut in."));
     return;
   }
-  const start = form.get("startedAt") ? new Date(String(form.get("startedAt"))).toISOString() : "";
-  const end = start ? new Date(new Date(start).getTime() + totalMinutes * 60000).toISOString() : "";
+  const dateLabel = String(form.get("workedOn") || "").trim();
   const payload = {
     name,
     minutes: totalMinutes,
-    start,
-    end,
+    dateLabel,
+    start: "",
+    end: "",
     manual: true,
     updatedAt: nowIso()
   };
@@ -1558,7 +1559,7 @@ function totalProjectMinutes(project) {
 
 function timeEntryMeta(entry) {
   const date = entry.end || entry.createdAt || entry.start;
-  const label = date ? new Date(date).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) : "geen datum";
+  const label = entry.dateLabel || (date ? new Date(date).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) : "geen datum");
   return `${label} · ${entry.manual ? "handmatig" : "getimed"}`;
 }
 
