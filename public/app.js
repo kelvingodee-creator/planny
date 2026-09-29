@@ -522,11 +522,13 @@ function timeSessionsPanel(project) {
   const entries = project.timeEntries || [];
   const activeMinutes = activeTimerMinutes(project);
   const totalMinutes = totalProjectMinutes(project);
+  const sessionCount = entries.length;
   panel.innerHTML = `
     <div class="time-panel-head">
       <div>
         <p class="eyebrow">Sessies</p>
-        <h2>${escapeHtml(formatMinutes(totalMinutes))}</h2>
+        <h2>${sessionCount} ${sessionCount === 1 ? "sessie" : "sessies"}</h2>
+        <p class="time-total">${escapeHtml(formatMinutes(totalMinutes))} totaal</p>
       </div>
       <div class="time-panel-status">
         ${project.timerStartedAt ? `<span class="live-pill">Loopt ${escapeHtml(formatMinutes(activeMinutes))}</span>` : `<span class="time-panel-hint">Nog niet actief</span>`}
@@ -838,10 +840,10 @@ function openTimeEntryDialog(projectId, entryId = "") {
   els.timeEntryForm.dataset.projectId = project.id;
   els.timeEntryForm.dataset.entryId = entry?.id || "";
   els.timeEntryDialogTitle.textContent = entry ? "Sessie aanpassen" : "Tijd toevoegen";
-  els.timeEntryForm.elements.name.value = entry?.name || "Werksessie";
+  els.timeEntryForm.elements.name.value = entry ? entry.name : "";
   els.timeEntryForm.elements.startedAt.value = toDateTimeLocal(entry?.start || "");
-  els.timeEntryForm.elements.hours.value = entry ? Math.floor(entry.minutes / 60) : 0;
-  els.timeEntryForm.elements.minutes.value = entry ? entry.minutes % 60 : 30;
+  els.timeEntryForm.elements.hours.value = entry ? String(Math.floor(entry.minutes / 60)) : "";
+  els.timeEntryForm.elements.minutes.value = entry ? String(entry.minutes % 60) : "";
   els.timeEntryDialog.showModal();
   els.timeEntryForm.elements.name.focus();
 }
@@ -1186,17 +1188,23 @@ els.timeEntryForm?.addEventListener("submit", event => {
   const project = projectById(els.timeEntryForm.dataset.projectId);
   if (!project) return;
   const entryId = els.timeEntryForm.dataset.entryId;
-  const hours = Math.max(0, Number(form.get("hours") || 0));
-  const minutes = Math.max(0, Number(form.get("minutes") || 0));
+  const name = String(form.get("name") || "").trim();
+  if (!name) {
+    showError(new Error("Geef deze sessie eerst een naam."));
+    els.timeEntryForm.elements.name.focus();
+    return;
+  }
+  const hours = Math.max(0, Number(String(form.get("hours") || "0").replace(",", ".")));
+  const minutes = Math.max(0, Number(String(form.get("minutes") || "0").replace(",", ".")));
   const totalMinutes = Math.round(hours * 60 + minutes);
   if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
     showError(new Error("Vul minimaal één minuut in."));
     return;
   }
-  const start = form.get("startedAt") ? new Date(String(form.get("startedAt"))).toISOString() : nowIso();
-  const end = new Date(new Date(start).getTime() + totalMinutes * 60000).toISOString();
+  const start = form.get("startedAt") ? new Date(String(form.get("startedAt"))).toISOString() : "";
+  const end = start ? new Date(new Date(start).getTime() + totalMinutes * 60000).toISOString() : "";
   const payload = {
-    name: String(form.get("name") || "Werksessie").trim() || "Werksessie",
+    name,
     minutes: totalMinutes,
     start,
     end,
