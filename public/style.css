@@ -204,7 +204,7 @@ button {
 #planny-app {
   position: relative;
   display: grid;
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 268px 1fr;
   width: 100vw;
   height: 100vh;
   min-width: 980px;
@@ -213,11 +213,11 @@ button {
 .rail {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  gap: 22px;
+  gap: 16px;
   min-height: 0;
-  padding: 22px 16px;
+  padding: 20px 14px 16px;
   border-right: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.68);
+  background: rgba(35, 35, 37, 0.96);
 }
 
 .rail-logo {
@@ -235,11 +235,10 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .rail-section-more {
@@ -275,7 +274,7 @@ button {
 .nav-list {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 5px;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
@@ -333,24 +332,24 @@ button {
 
 .nav-folder {
   display: grid;
-  gap: 7px;
+  gap: 1px;
 }
 
 .nav-folder-heading {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 18px;
+  grid-template-columns: 30px minmax(0, 1fr) 16px;
   align-items: center;
   gap: 5px;
   width: 100%;
-  min-height: 38px;
+  min-height: 40px;
   border: 0;
   border-radius: 8px;
-  padding: 0 10px;
+  padding: 0 8px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
   text-align: left;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.04rem;
+  font-weight: 520;
 }
 
 .nav-folder-heading:hover {
@@ -358,9 +357,26 @@ button {
 }
 
 .folder-icon {
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 1.55rem;
-  line-height: 1;
+  position: relative;
+  display: block;
+  width: 25px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.84);
+  border-radius: 3px 4px 5px 5px;
+  color: rgba(255, 255, 255, 0.84);
+  transform: skewX(-7deg);
+}
+
+.folder-icon::before {
+  position: absolute;
+  content: "";
+  top: -7px;
+  left: 1px;
+  width: 11px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 3px 4px 0 0;
 }
 
 .folder-chevron {
@@ -371,8 +387,8 @@ button {
 
 .nav-folder-projects {
   display: grid;
-  gap: 10px;
-  padding: 2px 0 8px 26px;
+  gap: 1px;
+  padding: 1px 0 6px 38px;
   border-left: 0;
 }
 
@@ -422,15 +438,15 @@ button {
 .nav-project-button {
   justify-content: flex-start;
   width: 100%;
-  min-height: 42px;
+  min-height: 38px;
   border: 0;
   border-radius: 10px;
-  padding: 0 12px 0 48px;
+  padding: 0 10px;
   background: transparent;
   color: rgba(255, 255, 255, 0.86);
   text-align: left;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 520;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -438,12 +454,30 @@ button {
 
 .nav-project-button:hover,
 .nav-project-button[data-active="true"] {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.13);
   color: #fff;
 }
 
 .nav-project-button[data-active="true"] {
-  box-shadow: inset 3px 0 0 var(--cyan);
+  box-shadow: none;
+}
+
+.nav-all-button {
+  justify-content: flex-start;
+  min-height: 38px;
+  border: 0;
+  padding: 0 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.74);
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 520;
+}
+
+.nav-all-button:hover,
+.nav-all-button[data-active="true"] {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
 }
 
 .nav-project-button::after {
@@ -1608,7 +1642,7 @@ legend {
   .rail-section-head {
     flex: 0 0 auto;
     gap: 4px;
-    font-size: 0.62rem;
+    font-size: 0.78rem;
   }
 
   .rail-section-add {
@@ -1669,16 +1703,25 @@ legend {
 
   .nav-folder-heading {
     width: auto;
-    min-width: 74px;
+    min-width: 84px;
     padding: 0 8px;
+    font-size: 0.78rem;
   }
 
-.nav-folder-projects {
+  .nav-folder-projects {
     display: flex;
     flex: 0 0 auto;
     gap: 8px;
     padding-left: 0;
     border-left: 0;
+  }
+
+  .nav-all-button,
+  .nav-project-button {
+    min-height: 34px;
+    min-width: 84px;
+    padding: 0 9px;
+    font-size: 0.78rem;
   }
 
   .workspace {
