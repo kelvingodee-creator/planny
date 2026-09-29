@@ -129,10 +129,13 @@ async function loadState() {
 }
 
 async function saveState() {
+  // Keep interactions instant: paint the local state before waiting for persistence.
+  const snapshot = JSON.stringify(state.data);
+  render();
   const response = await fetch("/api/state", {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(state.data)
+    body: snapshot
   });
   if (!response.ok) throw new Error("Planny kon niet bewaren.");
   state.data = normalizeState(await response.json());
@@ -276,10 +279,12 @@ function renderAccount() {
 }
 
 function renderNav() {
-  const items = [navButton("ALL", hasUnreadProjects(), state.activeView.type === "all", () => {
+  const allButton = navButton("All projects", hasUnreadProjects(), state.activeView.type === "all", () => {
     state.activeView = { type: "all", id: "all" };
     render();
-  })];
+  });
+  allButton.classList.add("nav-all-button");
+  const items = [allButton];
 
   const projects = projectsForCurrentUser();
   const assigned = new Set();
@@ -1476,7 +1481,8 @@ function folderNavItem(folder, projects) {
   heading.type = "button";
   heading.className = "nav-folder-heading";
   heading.title = "Dubbelklik om map te openen of te sluiten";
-  heading.innerHTML = `<span class="folder-icon" aria-hidden="true">▱</span><span>${escapeHtml(folder.name)}</span><span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span>`;
+  heading.setAttribute("aria-expanded", String(!folder.collapsed));
+  heading.innerHTML = `<span class="folder-icon" aria-hidden="true"></span><span>${escapeHtml(folder.name)}</span><span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span>`;
   heading.addEventListener("click", () => {
     folder.collapsed = !folder.collapsed;
     saveState().catch(showError);
