@@ -1140,6 +1140,13 @@ button:active {
   margin: 0;
 }
 
+.time-total {
+  margin-top: 4px !important;
+  color: var(--ink) !important;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
 .time-panel p,
 .empty-panel p {
   margin: 0;
