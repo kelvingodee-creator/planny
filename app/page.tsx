@@ -256,11 +256,11 @@ export default function Home() {
               </label>
               <label>
                 <span>Uren</span>
-                <input name="hours" type="number" min="0" max="99" step="1" value="0" />
+                <input name="hours" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" autoComplete="off" />
               </label>
               <label>
                 <span>Minuten</span>
-                <input name="minutes" type="number" min="0" max="59" step="1" value="30" />
+                <input name="minutes" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="30" autoComplete="off" />
               </label>
             </div>
             <p className="dialog-copy">Gebruik dit ook als je vergeten bent de timer aan te zetten.</p>
