@@ -28,6 +28,7 @@ const els = {
   loginForm: document.getElementById("loginForm"),
   signupForm: document.getElementById("signupForm"),
   navList: document.getElementById("navList"),
+  mobileProjectSelect: document.getElementById("mobileProjectSelect"),
   addFolderButton: document.getElementById("addFolderButton"),
   board: document.getElementById("board"),
   viewEyebrow: document.getElementById("viewEyebrow"),
@@ -299,6 +300,49 @@ function renderNav() {
   }
 
   els.navList.replaceChildren(...items);
+  renderMobileProjectSelect();
+}
+
+function renderMobileProjectSelect() {
+  if (!els.mobileProjectSelect) return;
+  const projects = projectsForCurrentUser();
+  const fragment = document.createDocumentFragment();
+  const all = document.createElement("option");
+  all.value = "all";
+  all.textContent = "Alle projecten";
+  fragment.append(all);
+
+  const assigned = new Set();
+  for (const folder of state.data.folders || []) {
+    const folderProjects = projects.filter(project => folder.projectIds.includes(project.id));
+    folderProjects.forEach(project => assigned.add(project.id));
+    if (!folderProjects.length) continue;
+    const group = document.createElement("optgroup");
+    group.label = folder.name;
+    for (const project of folderProjects) {
+      const option = document.createElement("option");
+      option.value = `project:${project.id}`;
+      option.textContent = project.name;
+      group.append(option);
+    }
+    fragment.append(group);
+  }
+
+  const ungrouped = projects.filter(project => !assigned.has(project.id));
+  if (ungrouped.length) {
+    const group = document.createElement("optgroup");
+    group.label = "Losse projecten";
+    for (const project of ungrouped) {
+      const option = document.createElement("option");
+      option.value = `project:${project.id}`;
+      option.textContent = project.name;
+      group.append(option);
+    }
+    fragment.append(group);
+  }
+
+  els.mobileProjectSelect.replaceChildren(fragment);
+  els.mobileProjectSelect.value = state.activeView.type === "project" ? `project:${state.activeView.id}` : "all";
 }
 
 function renderBoard() {
@@ -1248,6 +1292,13 @@ els.mobileOptionsButton?.addEventListener("click", () => {
   const expanded = els.mobileOptionsButton.getAttribute("aria-expanded") === "true";
   els.mobileOptionsButton.setAttribute("aria-expanded", String(!expanded));
   document.querySelector(".top-actions")?.classList.toggle("is-expanded", !expanded);
+});
+els.mobileProjectSelect?.addEventListener("change", event => {
+  const value = event.currentTarget.value;
+  state.activeView = value === "all"
+    ? { type: "all", id: "all" }
+    : { type: "project", id: value.replace(/^project:/, "") };
+  render();
 });
 els.quickAddButton.addEventListener("click", () => openTaskDialog(taskDefaultsFromView()));
 els.addProjectButton.addEventListener("click", () => openProjectDialog());
