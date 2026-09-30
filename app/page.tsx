@@ -62,6 +62,12 @@ export default function Home() {
         </aside>
 
         <main className="workspace">
+          <label className="mobile-project-picker">
+            <span>Project</span>
+            <select id="mobileProjectSelect" aria-label="Project kiezen">
+              <option value="all">Alle projecten</option>
+            </select>
+          </label>
           <header className="topbar">
             <div>
               <p className="eyebrow" id="viewEyebrow">Team workspace</p>
