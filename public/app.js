@@ -17,7 +17,8 @@ const state = {
   currentUser: null,
   currentUserId: null,
   activeView: { type: "all", id: "all" },
-  search: ""
+  search: "",
+  needsFolderMigration: false
 };
 
 const els = {
@@ -127,6 +128,10 @@ async function loadState() {
   if (!canSeeCurrentView()) state.activeView = { type: "all", id: "all" };
   showApp();
   render();
+  if (state.needsFolderMigration) {
+    state.needsFolderMigration = false;
+    saveState().catch(showError);
+  }
 }
 
 async function saveState() {
@@ -146,21 +151,59 @@ async function saveState() {
 function normalizeState(data) {
   const users = normalizeUsers(data.users);
   const userIds = new Set(users.map(user => user.id));
+  const projects = (data.projects || []).map(project => normalizeProject(project, userIds));
+  const folders = normalizeFolders(data.folders, projects);
   return {
     ...data,
     version: data.version || 1,
     users,
   connections: (data.connections || []).map(normalizeConnection),
   userSettings: data.userSettings || {},
-    folders: (data.folders || []).map(folder => ({
-      id: folder.id || createId("folder"),
-      name: String(folder.name || "Nieuwe map").trim() || "Nieuwe map",
-      projectIds: unique(Array.isArray(folder.projectIds) ? folder.projectIds.map(String) : []),
-      collapsed: Boolean(folder.collapsed)
-    })),
+    folders,
     currentUserId: data.currentUserId || "kelvin",
-    projects: (data.projects || []).map(project => normalizeProject(project, userIds))
+    projects
   };
+}
+
+function normalizeFolders(rawFolders, projects) {
+  const folders = (rawFolders || []).map(folder => ({
+    id: folder.id || createId("folder"),
+    name: String(folder.name || "Nieuwe map").trim() || "Nieuwe map",
+    projectIds: unique(Array.isArray(folder.projectIds) ? folder.projectIds.map(String) : []),
+    collapsed: Boolean(folder.collapsed)
+  }));
+  const migrationNames = new Set([
+    "life",
+    "melo",
+    "budha to budha",
+    "alzheimer",
+    "willemijns paradijs",
+    "chatgpt",
+    "aquasleeve"
+  ]);
+  let migrated = false;
+  for (const project of projects) {
+    const name = String(project.name || "").trim();
+    if (!migrationNames.has(name.toLowerCase())) continue;
+    let folder = folders.find(item => item.name.toLowerCase() === name.toLowerCase());
+    if (!folder) {
+      folder = { id: createId("folder"), name, projectIds: [], collapsed: false };
+      folders.push(folder);
+      migrated = true;
+    }
+    if (!folder.projectIds.includes(project.id)) {
+      folder.projectIds.push(project.id);
+      migrated = true;
+    }
+    for (const other of folders) {
+      if (other.id !== folder.id && other.projectIds.includes(project.id)) {
+        other.projectIds = other.projectIds.filter(id => id !== project.id);
+        migrated = true;
+      }
+    }
+  }
+  if (migrated) state.needsFolderMigration = true;
+  return folders;
 }
 
 function normalizeConnection(connection) {
