@@ -55,7 +55,7 @@ export default function Home() {
           <div className="rail-section-head">
             <span>Projects</span>
             <button className="rail-section-more" id="projectsMoreButton" type="button" title="Meer projectopties" aria-label="Meer projectopties">…</button>
-            <button className="rail-section-add" id="addFolderButton" type="button" title="Nieuwe map" aria-label="Nieuwe map">+</button>
+            <button className="rail-section-add" id="addFolderButton" type="button" title="Nieuwe map" aria-label="Nieuwe map">+ map</button>
           </div>
           <nav id="navList" className="nav-list"></nav>
           <button className="rail-add" id="quickAddButton" type="button" title="Nieuwe taak">+</button>
