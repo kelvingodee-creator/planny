@@ -1674,7 +1674,7 @@ function folderNavItem(folder, projects) {
   add.className = "folder-add-project";
   add.title = `Nieuw project in ${folder.name}`;
   add.setAttribute("aria-label", `Nieuw project in ${folder.name}`);
-  add.textContent = "+";
+  add.textContent = "+ project";
   add.addEventListener("click", event => {
     event.stopPropagation();
     openProjectDialog(null, folder.id);
