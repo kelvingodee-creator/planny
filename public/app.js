@@ -266,10 +266,12 @@ function normalizeProject(project, userIds) {
 }
 
 function normalizeTimeEntry(entry) {
+  const hourlyRate = Number(String(entry.hourlyRate ?? "").replace(",", "."));
   return {
     id: entry.id || createId("time"),
     name: entry.name || (entry.manual ? "Handmatig toegevoegd" : "Werksessie"),
     minutes: Math.max(1, Math.round(Number(entry.minutes || 1))),
+    hourlyRate: Number.isFinite(hourlyRate) && hourlyRate >= 0 ? hourlyRate : 0,
     start: entry.start || "",
     end: entry.end || "",
     dateLabel: String(entry.dateLabel || "").trim(),
@@ -467,12 +469,13 @@ function folderTimePanel(folder, projects) {
   panel.className = "time-panel folder-time-panel";
   const sessions = projects.reduce((sum, project) => sum + (project.timeEntries || []).length + (project.timerStartedAt ? 1 : 0), 0);
   const totalMinutes = projects.reduce((sum, project) => sum + totalProjectMinutes(project), 0);
+  const totalAmount = projects.reduce((sum, project) => sum + totalProjectAmount(project), 0);
   panel.innerHTML = `
     <div class="time-panel-head">
       <div>
         <p class="eyebrow">Mapoverzicht</p>
         <h2>${escapeHtml(folder.name)}</h2>
-        <p class="time-total">${sessions} ${sessions === 1 ? "sessie" : "sessies"} · ${escapeHtml(formatMinutes(totalMinutes))} totaal</p>
+        <p class="time-total">${sessions} ${sessions === 1 ? "sessie" : "sessies"} · ${escapeHtml(formatMinutes(totalMinutes))} · ${escapeHtml(formatCurrency(totalAmount))}</p>
       </div>
       <div class="folder-time-breakdown"></div>
     </div>
@@ -480,7 +483,8 @@ function folderTimePanel(folder, projects) {
   const breakdown = panel.querySelector(".folder-time-breakdown");
   projects.forEach(project => {
     const item = document.createElement("span");
-    item.textContent = `${project.name} · ${formatMinutes(totalProjectMinutes(project))}`;
+    const amount = totalProjectAmount(project);
+    item.textContent = `${project.name} · ${formatMinutes(totalProjectMinutes(project))}${amount > 0 ? ` · ${formatCurrency(amount)}` : ""}`;
     breakdown.append(item);
   });
   return panel;
@@ -669,13 +673,14 @@ function timeSessionsPanel(project) {
   const entries = project.timeEntries || [];
   const activeMinutes = activeTimerMinutes(project);
   const totalMinutes = totalProjectMinutes(project);
+  const totalAmount = totalProjectAmount(project);
   const sessionCount = entries.length;
   panel.innerHTML = `
     <div class="time-panel-head">
       <div>
         <p class="eyebrow">Sessies</p>
         <h2>${sessionCount} ${sessionCount === 1 ? "sessie" : "sessies"}</h2>
-        <p class="time-total">${escapeHtml(formatMinutes(totalMinutes))} totaal</p>
+        <p class="time-total">${escapeHtml(formatMinutes(totalMinutes))} totaal · ${escapeHtml(formatCurrency(totalAmount))}</p>
       </div>
       <div class="time-panel-status">
         ${project.timerStartedAt ? `<span class="live-pill">Loopt ${escapeHtml(formatMinutes(activeMinutes))}</span>` : `<span class="time-panel-hint">Nog niet actief</span>`}
@@ -698,7 +703,7 @@ function timeEntryRow(project, entry) {
   row.innerHTML = `
     <button class="time-entry-name" type="button" title="Dubbelklik om naam te wijzigen">
       <strong>${escapeHtml(entry.name)}</strong>
-      <small>${escapeHtml(timeEntryMeta(entry))}</small>
+      <small>${escapeHtml(timeEntryMeta(entry))}${entry.hourlyRate > 0 ? ` · ${escapeHtml(formatCurrency(entry.hourlyRate))}/uur · ${escapeHtml(formatCurrency(timeEntryAmount(entry)))}` : ""}</small>
     </button>
     <div class="time-entry-controls">
       <button class="soft-button" type="button">${escapeHtml(formatMinutes(entry.minutes))}</button>
@@ -993,6 +998,7 @@ function openTimeEntryDialog(projectId, entryId = "") {
   els.timeEntryForm.elements.workedOn.value = entry?.dateLabel || toDateTimeLocal(entry?.start || "");
   els.timeEntryForm.elements.hours.value = entry ? String(Math.floor(entry.minutes / 60)) : "";
   els.timeEntryForm.elements.minutes.value = entry ? String(entry.minutes % 60) : "";
+  els.timeEntryForm.elements.hourlyRate.value = entry?.hourlyRate ? String(entry.hourlyRate).replace(".", ",") : "";
   els.timeEntryDialog.showModal();
   els.timeEntryForm.elements.name.focus();
 }
@@ -1357,10 +1363,17 @@ els.timeEntryForm?.addEventListener("submit", event => {
     showError(new Error("Vul minimaal één minuut in."));
     return;
   }
+  const hourlyRateInput = String(form.get("hourlyRate") || "").trim();
+  const hourlyRate = hourlyRateInput ? Number(hourlyRateInput.replace(",", ".")) : 0;
+  if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+    showError(new Error("Vul een geldige uurprijs in, of laat het veld leeg."));
+    return;
+  }
   const dateLabel = String(form.get("workedOn") || "").trim();
   const payload = {
     name,
     minutes: totalMinutes,
+    hourlyRate,
     dateLabel,
     start: "",
     end: "",
@@ -1825,6 +1838,14 @@ function totalProjectMinutes(project) {
   return entries.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0) + activeTimerMinutes(project);
 }
 
+function timeEntryAmount(entry) {
+  return (Number(entry?.minutes || 0) / 60) * Number(entry?.hourlyRate || 0);
+}
+
+function totalProjectAmount(project) {
+  return (project?.timeEntries || []).reduce((sum, entry) => sum + timeEntryAmount(entry), 0);
+}
+
 function timeEntryMeta(entry) {
   const date = entry.end || entry.createdAt || entry.start;
   const label = entry.dateLabel || (date ? new Date(date).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) : "geen datum");
@@ -1836,6 +1857,13 @@ function formatMinutes(minutes) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours}u ${rest}m` : `${hours}u`;
+}
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("nl-NL", {
+    style: "currency",
+    currency: "EUR"
+  }).format(Number(amount) || 0);
 }
 
 function slug(value) {
