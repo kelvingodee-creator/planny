@@ -18,7 +18,8 @@ const state = {
   currentUserId: null,
   activeView: { type: "all", id: "all" },
   search: "",
-  needsFolderMigration: false
+  needsFolderMigration: false,
+  pendingProjectFolderId: ""
 };
 
 const els = {
@@ -761,8 +762,9 @@ function openTaskDialog({ projectId = null, priority = "medium", taskId = null, 
 function openProjectDialog(projectId = null, folderId = "") {
   els.projectForm.reset();
   const project = projectId ? projectById(projectId) : null;
+  state.pendingProjectFolderId = folderId || "";
   els.projectForm.dataset.projectId = project?.id || "";
-  els.projectForm.dataset.folderId = folderId || "";
+  els.projectForm.dataset.folderId = state.pendingProjectFolderId;
   els.projectDialogTitle.textContent = project ? "Project bewerken" : "Nieuw project";
   els.deleteProjectButton.hidden = !project;
   els.projectForm.elements.name.value = project?.name || "";
@@ -1260,6 +1262,7 @@ els.projectForm.addEventListener("submit", event => {
   }
   const form = new FormData(els.projectForm);
   const projectId = els.projectForm.dataset.projectId;
+  const folderId = els.projectForm.dataset.folderId || state.pendingProjectFolderId;
   const selectedMembers = form.getAll("members").map(String);
   const members = selectedMembers.length ? selectedMembers : [state.currentUserId];
   const payload = {
@@ -1281,12 +1284,14 @@ els.projectForm.addEventListener("submit", event => {
       timeEntries: []
     };
     state.data.projects.unshift(project);
-    if (els.projectForm.dataset.folderId) {
-      const folder = state.data.folders.find(item => item.id === els.projectForm.dataset.folderId);
+    if (folderId) {
+      state.data.folders = state.data.folders || [];
+      const folder = state.data.folders.find(item => item.id === folderId);
       if (folder) folder.projectIds = unique([...folder.projectIds, project.id]);
     }
     state.activeView = { type: "project", id: project.id };
   }
+  state.pendingProjectFolderId = "";
   els.projectDialog.close();
   saveState().catch(showError);
 });
@@ -1670,7 +1675,10 @@ function folderNavItem(folder, projects) {
   add.title = `Nieuw project in ${folder.name}`;
   add.setAttribute("aria-label", `Nieuw project in ${folder.name}`);
   add.textContent = "+";
-  add.addEventListener("click", () => openProjectDialog(null, folder.id));
+  add.addEventListener("click", event => {
+    event.stopPropagation();
+    openProjectDialog(null, folder.id);
+  });
   enableProjectDropTarget(wrapper, folder);
   heading.append(select, toggle, add);
   wrapper.append(heading);
