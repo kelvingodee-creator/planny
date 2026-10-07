@@ -257,7 +257,8 @@ button {
 .rail-section-add {
   display: grid;
   place-items: center;
-  min-width: 56px;
+  width: 28px;
+  min-width: 28px;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -399,12 +400,14 @@ button {
 }
 
 .folder-add-project {
-  width: auto;
-  min-width: 70px;
-  padding: 0 7px;
-  font-size: 0.72rem;
-  font-weight: 850;
-  white-space: nowrap;
+  font-size: 1.15rem;
+}
+
+.nav-folder-select .is-editing,
+.nav-project-button .is-editing {
+  border-radius: 5px;
+  outline: 2px solid rgba(140, 207, 255, 0.5);
+  background: rgba(140, 207, 255, 0.12);
 }
 
 .folder-icon {
