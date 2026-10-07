@@ -1641,7 +1641,7 @@ function projectNavItem(project) {
     event.preventDefault();
     event.stopPropagation();
     window.clearTimeout(clickTimer);
-    beginSidebarNameEdit(projectName, project.name, name => {
+    beginSidebarNameEdit(projectButton, project.name, name => {
       project.name = name;
       saveState().catch(showError);
     });
@@ -1658,27 +1658,27 @@ function projectNavItem(project) {
 }
 
 function beginSidebarNameEdit(node, originalName, onSave) {
-  if (!node || node.isContentEditable) return;
+  if (!node || node.dataset.editing === "true") return;
   const original = String(originalName || "").trim();
-  node.contentEditable = "true";
-  node.classList.add("is-editing");
-  node.focus();
-  const selection = window.getSelection();
-  const range = document.createRange();
-  range.selectNodeContents(node);
-  selection?.removeAllRanges();
-  selection?.addRange(range);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "nav-inline-input";
+  input.value = original;
+  input.maxLength = 80;
+  input.setAttribute("aria-label", `Naam wijzigen: ${original}`);
+  node.dataset.editing = "true";
+  node.replaceWith(input);
 
   let finished = false;
   const finish = save => {
     if (finished) return;
     finished = true;
-    node.removeEventListener("blur", onBlur);
-    node.removeEventListener("keydown", onKeyDown);
-    node.contentEditable = "false";
-    node.classList.remove("is-editing");
-    const nextName = node.textContent.trim();
-    node.textContent = nextName || original;
+    input.removeEventListener("blur", onBlur);
+    input.removeEventListener("keydown", onKeyDown);
+    const nextName = input.value.trim();
+    node.querySelector("span:last-child")?.replaceChildren(document.createTextNode(nextName || original));
+    input.replaceWith(node);
+    delete node.dataset.editing;
     if (save && nextName && nextName !== original) onSave(nextName);
   };
   const onBlur = () => finish(true);
@@ -1692,8 +1692,10 @@ function beginSidebarNameEdit(node, originalName, onSave) {
       finish(false);
     }
   };
-  node.addEventListener("blur", onBlur);
-  node.addEventListener("keydown", onKeyDown);
+  input.addEventListener("blur", onBlur);
+  input.addEventListener("keydown", onKeyDown);
+  input.focus();
+  input.select();
 }
 
 function folderNavItem(folder, projects) {
@@ -1721,7 +1723,7 @@ function folderNavItem(folder, projects) {
     event.preventDefault();
     event.stopPropagation();
     window.clearTimeout(clickTimer);
-    beginSidebarNameEdit(folderName, folder.name, name => {
+    beginSidebarNameEdit(select, folder.name, name => {
       folder.name = name;
       saveState().catch(showError);
     });
