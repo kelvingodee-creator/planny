@@ -337,10 +337,23 @@ button {
 
 .nav-folder-heading {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 16px;
+  grid-template-columns: minmax(0, 1fr) 24px 28px;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
   width: 100%;
+  min-height: 40px;
+  padding: 0;
+}
+
+.nav-folder-heading:hover {
+  background: transparent;
+}
+
+.nav-folder-select {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
   min-height: 40px;
   border: 0;
   border-radius: 8px;
@@ -350,10 +363,43 @@ button {
   text-align: left;
   font-size: 1.04rem;
   font-weight: 520;
+  overflow: hidden;
 }
 
-.nav-folder-heading:hover {
-  background: rgba(255, 255, 255, 0.08);
+.nav-folder-select span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-folder-select:hover,
+.nav-folder-select[data-active="true"] {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.folder-toggle,
+.folder-add-project {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 1.18rem;
+  line-height: 1;
+}
+
+.folder-toggle:hover,
+.folder-add-project:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.folder-add-project {
+  font-size: 1.15rem;
 }
 
 .folder-icon {
@@ -1787,6 +1833,15 @@ legend {
     gap: 14px;
   }
 
+  .folder-project-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .folder-time-breakdown {
+    justify-content: flex-start;
+  }
+
   .priority-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
@@ -1854,7 +1909,45 @@ legend {
 }
 
 .nav-folder.is-project-drop-target .nav-folder-heading {
-  border-color: var(--cyan);
+  border-radius: 8px;
   background: rgba(140, 207, 255, 0.16);
   box-shadow: 0 0 0 3px rgba(140, 207, 255, 0.13);
+}
+
+.folder-view-board {
+  overflow-x: hidden;
+}
+
+.folder-board {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.folder-project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.folder-time-panel .time-panel-head {
+  align-items: start;
+}
+
+.folder-time-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  max-width: 520px;
+}
+
+.folder-time-breakdown span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
 }
