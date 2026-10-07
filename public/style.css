@@ -257,7 +257,7 @@ button {
 .rail-section-add {
   display: grid;
   place-items: center;
-  width: 28px;
+  min-width: 56px;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -337,7 +337,7 @@ button {
 
 .nav-folder-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px 28px;
+  grid-template-columns: minmax(0, 1fr) 24px auto;
   align-items: center;
   gap: 2px;
   width: 100%;
@@ -399,7 +399,12 @@ button {
 }
 
 .folder-add-project {
-  font-size: 1.15rem;
+  width: auto;
+  min-width: 70px;
+  padding: 0 7px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .folder-icon {
@@ -557,10 +562,7 @@ button {
 }
 
 .rail-add {
-  width: 68px;
-  min-height: 36px;
-  margin: 0 auto;
-  font-size: 1.25rem;
+  display: none;
 }
 
 .workspace {
