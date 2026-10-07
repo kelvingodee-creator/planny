@@ -268,6 +268,10 @@ export default function Home() {
                 <span>Minuten</span>
                 <input name="minutes" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="30" autoComplete="off" />
               </label>
+              <label>
+                <span>Uurprijs <em>(optioneel)</em></span>
+                <input name="hourlyRate" type="text" inputMode="decimal" placeholder="bijv. 75" autoComplete="off" />
+              </label>
             </div>
             <p className="dialog-copy">Gebruik dit ook als je vergeten bent de timer aan te zetten.</p>
             <div className="dialog-actions">
