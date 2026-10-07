@@ -1625,13 +1625,27 @@ function projectNavItem(project) {
   item.draggable = true;
   item.title = "Sleep dit project naar een map";
   const active = state.activeView.type === "project" && state.activeView.id === project.id;
+  let clickTimer;
   const projectButton = navButton(project.name, hasUnreadProjectTasks(project), active, () => {
-    state.activeView = { type: "project", id: project.id };
-    markProjectSeen(project.id);
-    render();
+    window.clearTimeout(clickTimer);
+    clickTimer = window.setTimeout(() => {
+      state.activeView = { type: "project", id: project.id };
+      markProjectSeen(project.id);
+      render();
+    }, 220);
   });
   projectButton.classList.add("nav-project-button");
   projectButton.title = project.name;
+  const projectName = projectButton.querySelector("span");
+  projectName?.addEventListener("dblclick", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.clearTimeout(clickTimer);
+    beginSidebarNameEdit(projectName, project.name, name => {
+      project.name = name;
+      saveState().catch(showError);
+    });
+  });
   item.append(projectButton);
   item.addEventListener("dragstart", event => {
     event.dataTransfer.effectAllowed = "move";
@@ -1641,6 +1655,45 @@ function projectNavItem(project) {
   item.addEventListener("dragend", () => item.classList.remove("is-dragging"));
   enableTaskDropTarget(item, { projectId: project.id });
   return item;
+}
+
+function beginSidebarNameEdit(node, originalName, onSave) {
+  if (!node || node.isContentEditable) return;
+  const original = String(originalName || "").trim();
+  node.contentEditable = "true";
+  node.classList.add("is-editing");
+  node.focus();
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  let finished = false;
+  const finish = save => {
+    if (finished) return;
+    finished = true;
+    node.removeEventListener("blur", onBlur);
+    node.removeEventListener("keydown", onKeyDown);
+    node.contentEditable = "false";
+    node.classList.remove("is-editing");
+    const nextName = node.textContent.trim();
+    node.textContent = nextName || original;
+    if (save && nextName && nextName !== original) onSave(nextName);
+  };
+  const onBlur = () => finish(true);
+  const onKeyDown = event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finish(true);
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  };
+  node.addEventListener("blur", onBlur);
+  node.addEventListener("keydown", onKeyDown);
 }
 
 function folderNavItem(folder, projects) {
@@ -1655,9 +1708,23 @@ function folderNavItem(folder, projects) {
   select.dataset.active = String(state.activeView.type === "folder" && state.activeView.id === folder.id);
   select.title = "Open mapoverzicht";
   select.innerHTML = `<span class="folder-icon" aria-hidden="true"></span><span>${escapeHtml(folder.name)}</span>`;
+  let clickTimer;
   select.addEventListener("click", () => {
-    state.activeView = { type: "folder", id: folder.id };
-    render();
+    window.clearTimeout(clickTimer);
+    clickTimer = window.setTimeout(() => {
+      state.activeView = { type: "folder", id: folder.id };
+      render();
+    }, 220);
+  });
+  const folderName = select.querySelector("span:last-child");
+  folderName?.addEventListener("dblclick", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.clearTimeout(clickTimer);
+    beginSidebarNameEdit(folderName, folder.name, name => {
+      folder.name = name;
+      saveState().catch(showError);
+    });
   });
   const toggle = document.createElement("button");
   toggle.type = "button";
@@ -1674,7 +1741,7 @@ function folderNavItem(folder, projects) {
   add.className = "folder-add-project";
   add.title = `Nieuw project in ${folder.name}`;
   add.setAttribute("aria-label", `Nieuw project in ${folder.name}`);
-  add.textContent = "+ project";
+  add.textContent = "+";
   add.addEventListener("click", event => {
     event.stopPropagation();
     openProjectDialog(null, folder.id);
