@@ -1058,7 +1058,8 @@ button:active {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
+  min-height: max-content;
 }
 
 .priority-grid {
@@ -1066,12 +1067,13 @@ button:active {
   grid-template-columns: repeat(2, minmax(240px, 1fr));
   gap: 18px;
   min-width: 0;
-  min-height: 0;
+  min-height: max-content;
+  align-items: start;
 }
 
 .priority-column {
   display: block;
-  min-height: 0;
+  min-height: max-content;
   padding: 18px;
 }
 
@@ -1218,7 +1220,9 @@ button:active {
 .time-panel {
   display: grid;
   gap: 18px;
-  min-height: 0;
+  min-height: max-content;
+  height: max-content;
+  align-self: start;
   padding: 18px;
 }
 
