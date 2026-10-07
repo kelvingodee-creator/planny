@@ -265,7 +265,7 @@ function render() {
 
 function pageTheme() {
   if (state.activeView.type === "settings") return "library";
-  if (state.activeView.type === "project") {
+  if (state.activeView.type === "project" || state.activeView.type === "folder") {
     const id = String(state.activeView.id || "");
     const index = [...id].reduce((total, character) => total + character.charCodeAt(0), 0) % 3;
     return `project-${index}`;
@@ -316,9 +316,12 @@ function renderMobileProjectSelect() {
   for (const folder of state.data.folders || []) {
     const folderProjects = projects.filter(project => folder.projectIds.includes(project.id));
     folderProjects.forEach(project => assigned.add(project.id));
-    if (!folderProjects.length) continue;
     const group = document.createElement("optgroup");
     group.label = folder.name;
+    const folderOption = document.createElement("option");
+    folderOption.value = `folder:${folder.id}`;
+    folderOption.textContent = `Mapoverzicht: ${folder.name}`;
+    group.append(folderOption);
     for (const project of folderProjects) {
       const option = document.createElement("option");
       option.value = `project:${project.id}`;
@@ -342,7 +345,9 @@ function renderMobileProjectSelect() {
   }
 
   els.mobileProjectSelect.replaceChildren(fragment);
-  els.mobileProjectSelect.value = state.activeView.type === "project" ? `project:${state.activeView.id}` : "all";
+  els.mobileProjectSelect.value = state.activeView.type === "project"
+    ? `project:${state.activeView.id}`
+    : state.activeView.type === "folder" ? `folder:${state.activeView.id}` : "all";
 }
 
 function renderBoard() {
@@ -358,6 +363,11 @@ function renderBoard() {
   if (state.activeView.type === "project") {
     const project = projectById(state.activeView.id);
     renderProjectView(project);
+    return;
+  }
+
+  if (state.activeView.type === "folder") {
+    renderFolderView(state.activeView.id);
     return;
   }
 
@@ -387,6 +397,49 @@ function renderProjectView(project) {
   taskGrid.replaceChildren(...categoriesForProject(project).map(category => priorityColumn(project, category.id, category.label, category.color)));
   els.board.className = "board project-board";
   els.board.replaceChildren(taskGrid, timeSessionsPanel(project));
+}
+
+function renderFolderView(folderId) {
+  const folder = (state.data.folders || []).find(item => item.id === folderId);
+  const projects = folder ? projectsForCurrentUser().filter(project => folder.projectIds.includes(project.id)) : [];
+  if (!folder) {
+    els.board.className = "board empty-board";
+    els.board.replaceChildren(emptyPanel("Map niet gevonden", "Kies een andere map."));
+    return;
+  }
+  const board = document.createElement("div");
+  board.className = "folder-board";
+  board.append(folderTimePanel(folder, projects));
+  const projectGrid = document.createElement("div");
+  projectGrid.className = "folder-project-grid";
+  projectGrid.replaceChildren(...(projects.length ? projects.map(projectOverviewCard) : [emptyPanel("Nog geen projecten", "Voeg een project toe aan deze map.")]));
+  board.append(projectGrid);
+  els.board.className = "board folder-view-board";
+  els.board.replaceChildren(board);
+}
+
+function folderTimePanel(folder, projects) {
+  const panel = document.createElement("section");
+  panel.className = "time-panel folder-time-panel";
+  const sessions = projects.reduce((sum, project) => sum + (project.timeEntries || []).length + (project.timerStartedAt ? 1 : 0), 0);
+  const totalMinutes = projects.reduce((sum, project) => sum + totalProjectMinutes(project), 0);
+  panel.innerHTML = `
+    <div class="time-panel-head">
+      <div>
+        <p class="eyebrow">Mapoverzicht</p>
+        <h2>${escapeHtml(folder.name)}</h2>
+        <p class="time-total">${sessions} ${sessions === 1 ? "sessie" : "sessies"} · ${escapeHtml(formatMinutes(totalMinutes))} totaal</p>
+      </div>
+      <div class="folder-time-breakdown"></div>
+    </div>
+  `;
+  const breakdown = panel.querySelector(".folder-time-breakdown");
+  projects.forEach(project => {
+    const item = document.createElement("span");
+    item.textContent = `${project.name} · ${formatMinutes(totalProjectMinutes(project))}`;
+    breakdown.append(item);
+  });
+  return panel;
 }
 
 function projectOverviewCard(project) {
@@ -662,10 +715,11 @@ function openTaskDialog({ projectId = null, priority = "medium", taskId = null, 
   els.taskForm.elements.title.focus();
 }
 
-function openProjectDialog(projectId = null) {
+function openProjectDialog(projectId = null, folderId = "") {
   els.projectForm.reset();
   const project = projectId ? projectById(projectId) : null;
   els.projectForm.dataset.projectId = project?.id || "";
+  els.projectForm.dataset.folderId = folderId || "";
   els.projectDialogTitle.textContent = project ? "Project bewerken" : "Nieuw project";
   els.deleteProjectButton.hidden = !project;
   els.projectForm.elements.name.value = project?.name || "";
@@ -1184,6 +1238,10 @@ els.projectForm.addEventListener("submit", event => {
       timeEntries: []
     };
     state.data.projects.unshift(project);
+    if (els.projectForm.dataset.folderId) {
+      const folder = state.data.folders.find(item => item.id === els.projectForm.dataset.folderId);
+      if (folder) folder.projectIds = unique([...folder.projectIds, project.id]);
+    }
     state.activeView = { type: "project", id: project.id };
   }
   els.projectDialog.close();
@@ -1297,11 +1355,16 @@ els.mobileProjectSelect?.addEventListener("change", event => {
   const value = event.currentTarget.value;
   state.activeView = value === "all"
     ? { type: "all", id: "all" }
-    : { type: "project", id: value.replace(/^project:/, "") };
+    : value.startsWith("folder:")
+      ? { type: "folder", id: value.replace(/^folder:/, "") }
+      : { type: "project", id: value.replace(/^project:/, "") };
   render();
 });
 els.quickAddButton.addEventListener("click", () => openTaskDialog(taskDefaultsFromView()));
-els.addProjectButton.addEventListener("click", () => openProjectDialog());
+els.addProjectButton.addEventListener("click", () => {
+  const folderId = state.activeView.type === "folder" ? state.activeView.id : "";
+  openProjectDialog(null, folderId);
+});
 els.settingsButton.addEventListener("click", () => {
   state.activeView = { type: "settings", id: "settings" };
   render();
@@ -1364,12 +1427,20 @@ function currentHeader() {
     const project = projectById(state.activeView.id);
     return { eyebrow: projectMembersLabel(project), title: project?.name || "Project" };
   }
+  if (state.activeView.type === "folder") {
+    const folder = (state.data.folders || []).find(item => item.id === state.activeView.id);
+    return { eyebrow: "Mapoverzicht", title: folder?.name || "Map" };
+  }
   const user = userById(state.currentUserId);
   return { eyebrow: "Jouw dashboard", title: user?.name || "All" };
 }
 
 function taskDefaultsFromView() {
   if (state.activeView.type === "project") return { projectId: state.activeView.id };
+  if (state.activeView.type === "folder") {
+    const folder = (state.data.folders || []).find(item => item.id === state.activeView.id);
+    return { projectId: folder?.projectIds.find(id => projectById(id)) || null };
+  }
   return {};
 }
 
@@ -1528,17 +1599,37 @@ function folderNavItem(folder, projects) {
   const wrapper = document.createElement("section");
   wrapper.className = "nav-folder";
   wrapper.dataset.collapsed = String(folder.collapsed);
-  const heading = document.createElement("button");
-  heading.type = "button";
+  const heading = document.createElement("div");
   heading.className = "nav-folder-heading";
-  heading.title = "Dubbelklik om map te openen of te sluiten";
-  heading.setAttribute("aria-expanded", String(!folder.collapsed));
-  heading.innerHTML = `<span class="folder-icon" aria-hidden="true"></span><span>${escapeHtml(folder.name)}</span><span class="folder-chevron" aria-hidden="true">${folder.collapsed ? "›" : "⌄"}</span>`;
-  heading.addEventListener("click", () => {
+  const select = document.createElement("button");
+  select.type = "button";
+  select.className = "nav-folder-select";
+  select.dataset.active = String(state.activeView.type === "folder" && state.activeView.id === folder.id);
+  select.title = "Open mapoverzicht";
+  select.innerHTML = `<span class="folder-icon" aria-hidden="true"></span><span>${escapeHtml(folder.name)}</span>`;
+  select.addEventListener("click", () => {
+    state.activeView = { type: "folder", id: folder.id };
+    render();
+  });
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "folder-toggle";
+  toggle.title = folder.collapsed ? "Map openen" : "Map sluiten";
+  toggle.setAttribute("aria-expanded", String(!folder.collapsed));
+  toggle.textContent = folder.collapsed ? "›" : "⌄";
+  toggle.addEventListener("click", () => {
     folder.collapsed = !folder.collapsed;
     saveState().catch(showError);
   });
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "folder-add-project";
+  add.title = `Nieuw project in ${folder.name}`;
+  add.setAttribute("aria-label", `Nieuw project in ${folder.name}`);
+  add.textContent = "+";
+  add.addEventListener("click", () => openProjectDialog(null, folder.id));
   enableProjectDropTarget(wrapper, folder);
+  heading.append(select, toggle, add);
   wrapper.append(heading);
   if (!folder.collapsed) {
     const children = document.createElement("div");
