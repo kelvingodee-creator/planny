@@ -797,6 +797,7 @@ button:active {
 
 .board {
   min-height: 0;
+  height: 100%;
   overflow: auto;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1059,7 +1060,7 @@ button:active {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   gap: 18px;
   align-items: start;
-  min-height: max-content;
+  min-height: 0;
 }
 
 .priority-grid {
