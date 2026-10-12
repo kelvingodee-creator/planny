@@ -282,6 +282,64 @@ export default function Home() {
           </form>
         </dialog>
 
+        <dialog id="costEntryDialog">
+          <form method="dialog" className="dialog-card" id="costEntryForm">
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">Extra kosten</p>
+                <h2 id="costEntryDialogTitle">Kosten toevoegen</h2>
+              </div>
+              <button className="icon-button" id="closeCostEntryButton" type="button" aria-label="Sluiten">×</button>
+            </div>
+            <label>
+              <span>Naam van de post</span>
+              <input name="name" required maxLength={100} placeholder="Bijvoorbeeld freelance designer" />
+            </label>
+            <label>
+              <span>Soort post</span>
+              <select name="kind">
+                <option value="thirdParty">Inhuur derden</option>
+                <option value="material">Inkoop materiaal</option>
+              </select>
+            </label>
+            <div id="thirdPartyCostFields" className="field-row">
+              <label>
+                <span>Uren</span>
+                <input name="hours" type="text" inputMode="decimal" placeholder="bijv. 8" autoComplete="off" />
+              </label>
+              <label>
+                <span>Uurprijs</span>
+                <input name="hourlyRate" type="text" inputMode="decimal" placeholder="bijv. 80" autoComplete="off" />
+              </label>
+            </div>
+            <div id="materialCostFields" hidden>
+              <label>
+                <span>Bedrag</span>
+                <input name="amount" type="text" inputMode="decimal" placeholder="bijv. 250" autoComplete="off" />
+              </label>
+            </div>
+            <div className="field-row">
+              <label>
+                <span>Bedrag ingevoerd als</span>
+                <select name="vatMode">
+                  <option value="excl">Excl. btw</option>
+                  <option value="incl">Incl. btw</option>
+                </select>
+              </label>
+              <label>
+                <span>Btw-percentage</span>
+                <input name="vatRate" type="text" inputMode="decimal" placeholder="21" autoComplete="off" />
+              </label>
+            </div>
+            <p className="dialog-copy" id="costEntryPreview">Het overzicht rekent standaard excl. btw en toont incl. btw ernaast.</p>
+            <div className="dialog-actions">
+              <span className="dialog-spacer"></span>
+              <button className="soft-button" id="costEntryCancelButton" type="button">Annuleer</button>
+              <button className="primary-button" type="submit">Bewaar post</button>
+            </div>
+          </form>
+        </dialog>
+
         <dialog id="teamDialog">
           <div className="dialog-card archive-card">
             <div className="dialog-head">
