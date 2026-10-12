@@ -77,6 +77,14 @@ const els = {
   timeEntryDialogTitle: document.getElementById("timeEntryDialogTitle"),
   closeTimeEntryButton: document.getElementById("closeTimeEntryButton"),
   timeEntryCancelButton: document.getElementById("timeEntryCancelButton"),
+  costEntryDialog: document.getElementById("costEntryDialog"),
+  costEntryForm: document.getElementById("costEntryForm"),
+  costEntryDialogTitle: document.getElementById("costEntryDialogTitle"),
+  closeCostEntryButton: document.getElementById("closeCostEntryButton"),
+  costEntryCancelButton: document.getElementById("costEntryCancelButton"),
+  thirdPartyCostFields: document.getElementById("thirdPartyCostFields"),
+  materialCostFields: document.getElementById("materialCostFields"),
+  costEntryPreview: document.getElementById("costEntryPreview"),
   closeArchiveButton: document.getElementById("closeArchiveButton"),
   closeTeamButton: document.getElementById("closeTeamButton"),
   archiveList: document.getElementById("archiveList"),
@@ -261,6 +269,7 @@ function normalizeProject(project, userIds) {
     timerStartedAt: project.timerStartedAt || "",
     timerAlertedAt: project.timerAlertedAt || "",
     timeEntries: (project.timeEntries || []).map(normalizeTimeEntry),
+    costEntries: (project.costEntries || []).map(normalizeCostEntry),
     tasks: (project.tasks || []).map(task => normalizeTask(task))
   };
 }
@@ -272,11 +281,32 @@ function normalizeTimeEntry(entry) {
     name: entry.name || (entry.manual ? "Handmatig toegevoegd" : "Werksessie"),
     minutes: Math.max(1, Math.round(Number(entry.minutes || 1))),
     hourlyRate: Number.isFinite(hourlyRate) && hourlyRate >= 0 ? hourlyRate : 0,
+    vatMode: "excl",
+    vatRate: 21,
     start: entry.start || "",
     end: entry.end || "",
     dateLabel: String(entry.dateLabel || "").trim(),
     manual: Boolean(entry.manual),
     createdAt: entry.createdAt || entry.end || entry.start || nowIso(),
+    updatedAt: entry.updatedAt || entry.createdAt || ""
+  };
+}
+
+function normalizeCostEntry(entry) {
+  const hours = numberValue(entry.hours);
+  const hourlyRate = numberValue(entry.hourlyRate);
+  const amount = numberValue(entry.amount);
+  const vatRate = numberValue(entry.vatRate, 21);
+  return {
+    id: entry.id || createId("cost"),
+    kind: entry.kind === "material" ? "material" : "thirdParty",
+    name: String(entry.name || "Extra kosten").trim() || "Extra kosten",
+    hours: hours >= 0 ? hours : 0,
+    hourlyRate: hourlyRate >= 0 ? hourlyRate : 0,
+    amount: amount >= 0 ? amount : 0,
+    vatMode: entry.vatMode === "incl" ? "incl" : "excl",
+    vatRate: vatRate >= 0 ? vatRate : 21,
+    createdAt: entry.createdAt || nowIso(),
     updatedAt: entry.updatedAt || entry.createdAt || ""
   };
 }
@@ -469,13 +499,18 @@ function folderTimePanel(folder, projects) {
   panel.className = "time-panel folder-time-panel";
   const sessions = projects.reduce((sum, project) => sum + (project.timeEntries || []).length + (project.timerStartedAt ? 1 : 0), 0);
   const totalMinutes = projects.reduce((sum, project) => sum + totalProjectMinutes(project), 0);
-  const totalAmount = projects.reduce((sum, project) => sum + totalProjectAmount(project), 0);
+  const totalExcl = projects.reduce((sum, project) => sum + totalProjectAmount(project), 0);
+  const totalIncl = projects.reduce((sum, project) => sum + totalProjectAmountIncl(project), 0);
   panel.innerHTML = `
     <div class="time-panel-head">
       <div>
         <p class="eyebrow">Mapoverzicht</p>
         <h2>${escapeHtml(folder.name)}</h2>
-        <p class="time-total">${sessions} ${sessions === 1 ? "sessie" : "sessies"} · ${escapeHtml(formatMinutes(totalMinutes))} · ${escapeHtml(formatCurrency(totalAmount))}</p>
+        <p class="time-total">${sessions} ${sessions === 1 ? "sessie" : "sessies"} · ${escapeHtml(formatMinutes(totalMinutes))} totaal</p>
+        <div class="billing-summary">
+          <span><small>Excl. btw</small><strong>${escapeHtml(formatCurrency(totalExcl))}</strong></span>
+          <span><small>Incl. btw</small><strong>${escapeHtml(formatCurrency(totalIncl))}</strong></span>
+        </div>
       </div>
       <div class="folder-time-breakdown"></div>
     </div>
@@ -484,7 +519,7 @@ function folderTimePanel(folder, projects) {
   projects.forEach(project => {
     const item = document.createElement("span");
     const amount = totalProjectAmount(project);
-    item.textContent = `${project.name} · ${formatMinutes(totalProjectMinutes(project))}${amount > 0 ? ` · ${formatCurrency(amount)}` : ""}`;
+    item.textContent = `${project.name} · ${formatMinutes(totalProjectMinutes(project))} · ${formatCurrency(amount)} excl. · ${formatCurrency(totalProjectAmountIncl(project))} incl.`;
     breakdown.append(item);
   });
   return panel;
@@ -673,27 +708,41 @@ function timeSessionsPanel(project) {
   const entries = project.timeEntries || [];
   const activeMinutes = activeTimerMinutes(project);
   const totalMinutes = totalProjectMinutes(project);
-  const totalAmount = totalProjectAmount(project);
+  const totalExcl = totalProjectAmount(project);
+  const totalIncl = totalProjectAmountIncl(project);
   const sessionCount = entries.length;
   panel.innerHTML = `
     <div class="time-panel-head">
       <div>
         <p class="eyebrow">Sessies</p>
         <h2>${sessionCount} ${sessionCount === 1 ? "sessie" : "sessies"}</h2>
-        <p class="time-total">${escapeHtml(formatMinutes(totalMinutes))} totaal · ${escapeHtml(formatCurrency(totalAmount))}</p>
+        <p class="time-total">${escapeHtml(formatMinutes(totalMinutes))} totaal</p>
+        <div class="billing-summary">
+          <span><small>Excl. btw</small><strong>${escapeHtml(formatCurrency(totalExcl))}</strong></span>
+          <span><small>Incl. btw</small><strong>${escapeHtml(formatCurrency(totalIncl))}</strong></span>
+        </div>
       </div>
       <div class="time-panel-status">
         ${project.timerStartedAt ? `<span class="live-pill">Loopt ${escapeHtml(formatMinutes(activeMinutes))}</span>` : `<span class="time-panel-hint">Nog niet actief</span>`}
         <button class="${project.timerStartedAt ? "danger-button" : "primary-button"} time-toggle-button" type="button">${project.timerStartedAt ? "Stop timer" : "Start timer"}</button>
-        <button class="soft-button time-add-button" type="button">+ Tijd toevoegen</button>
+        <div class="time-add-actions">
+          <button class="soft-button time-add-button" type="button">+ Tijd</button>
+          <button class="soft-button cost-add-button" data-kind="thirdParty" type="button">+ Derden</button>
+          <button class="soft-button cost-add-button" data-kind="material" type="button">+ Materiaal</button>
+        </div>
       </div>
     </div>
     <div class="time-entry-list"></div>
+    <div class="cost-entry-panel"></div>
   `;
   panel.querySelector(".time-toggle-button").addEventListener("click", () => toggleTimer(project.id));
   panel.querySelector(".time-add-button").addEventListener("click", () => openTimeEntryDialog(project.id));
+  panel.querySelectorAll(".cost-add-button").forEach(button => {
+    button.addEventListener("click", () => openCostEntryDialog(project.id, "", button.dataset.kind));
+  });
   const list = panel.querySelector(".time-entry-list");
   list.replaceChildren(...(entries.length ? entries.map(entry => timeEntryRow(project, entry)) : [emptyTimeRow()]));
+  panel.querySelector(".cost-entry-panel").replaceWith(costEntriesPanel(project));
   return panel;
 }
 
@@ -720,6 +769,105 @@ function emptyTimeRow() {
   const row = document.createElement("div");
   row.className = "empty-time-row";
   row.textContent = "Nog geen sessies.";
+  return row;
+}
+
+function syncCostEntryForm() {
+  const form = els.costEntryForm;
+  if (!form) return;
+  const kind = form.elements.kind.value;
+  const isMaterial = kind === "material";
+  els.thirdPartyCostFields.hidden = isMaterial;
+  els.materialCostFields.hidden = !isMaterial;
+  els.costEntryDialogTitle.textContent = form.dataset.entryId
+    ? (isMaterial ? "Materiaal aanpassen" : "Inhuur aanpassen")
+    : (isMaterial ? "Materiaal toevoegen" : "Inhuur derden toevoegen");
+  els.costEntryPreview.textContent = isMaterial
+    ? "Vul het aankoopbedrag in. Het overzicht rekent excl. btw en toont incl. btw ernaast."
+    : "Vul de uren en het tarief in. Het overzicht rekent excl. btw en toont incl. btw ernaast.";
+}
+
+function openCostEntryDialog(projectId, entryId = "", kind = "thirdParty") {
+  const project = projectById(projectId);
+  if (!project || !els.costEntryDialog) return;
+  const entry = entryId ? costEntryById(project, entryId) : null;
+  const form = els.costEntryForm;
+  form.reset();
+  form.dataset.projectId = project.id;
+  form.dataset.entryId = entry?.id || "";
+  form.elements.name.value = entry?.name || "";
+  form.elements.kind.value = entry?.kind || kind;
+  form.elements.hours.value = entry ? String(entry.hours).replace(".", ",") : "";
+  form.elements.hourlyRate.value = entry ? String(entry.hourlyRate).replace(".", ",") : "";
+  form.elements.amount.value = entry ? String(entry.amount).replace(".", ",") : "";
+  form.elements.vatMode.value = entry?.vatMode || "excl";
+  form.elements.vatRate.value = entry ? String(entry.vatRate).replace(".", ",") : "21";
+  syncCostEntryForm();
+  els.costEntryDialog.showModal();
+  form.elements.name.focus();
+}
+
+function costEntryById(project, entryId) {
+  return project?.costEntries?.find(entry => entry.id === entryId);
+}
+
+function deleteCostEntry(projectId, entryId) {
+  const project = projectById(projectId);
+  if (!project || !confirm("Deze kostenpost verwijderen?")) return;
+  project.costEntries = (project.costEntries || []).filter(entry => entry.id !== entryId);
+  project.updatedAt = nowIso();
+  saveState().catch(showError);
+}
+
+function costEntriesPanel(project) {
+  const panel = document.createElement("section");
+  panel.className = "cost-entry-panel";
+  const entries = project.costEntries || [];
+  const totalExcl = totalProjectCostAmount(project);
+  const totalIncl = totalProjectCostAmountIncl(project);
+  panel.innerHTML = `
+    <div class="cost-entry-panel-head">
+      <div>
+        <p class="eyebrow">Extra kosten</p>
+        <p class="cost-summary-line">${escapeHtml(formatCurrency(totalExcl))} excl. · ${escapeHtml(formatCurrency(totalIncl))} incl.</p>
+      </div>
+    </div>
+    <div class="cost-entry-list"></div>
+  `;
+  const list = panel.querySelector(".cost-entry-list");
+  list.replaceChildren(...(entries.length ? entries.map(entry => costEntryRow(project, entry)) : [emptyCostRow()]));
+  return panel;
+}
+
+function costEntryRow(project, entry) {
+  const row = document.createElement("article");
+  row.className = "cost-entry-row";
+  const baseAmount = costEntryBaseAmount(entry);
+  const amountExcl = costEntryAmountExcl(entry);
+  const amountIncl = costEntryAmountIncl(entry);
+  const detail = entry.kind === "material"
+    ? `${formatCurrency(baseAmount)} ${entry.vatMode === "incl" ? "incl." : "excl."} btw`
+    : `${formatHours(entry.hours)} · ${formatCurrency(entry.hourlyRate)}/uur`;
+  row.innerHTML = `
+    <div class="cost-entry-copy">
+      <strong>${escapeHtml(entry.name)}</strong>
+      <small>${entry.kind === "material" ? "Inkoop materiaal" : "Inhuur derden"} · ${escapeHtml(detail)}</small>
+      <small>${escapeHtml(formatCurrency(amountExcl))} excl. btw · ${escapeHtml(formatCurrency(amountIncl))} incl. btw</small>
+    </div>
+    <div class="cost-entry-controls">
+      <button class="soft-button cost-edit-button" type="button">Pas aan</button>
+      <button class="danger-button cost-delete-button" type="button">Verwijder</button>
+    </div>
+  `;
+  row.querySelector(".cost-edit-button").addEventListener("click", () => openCostEntryDialog(project.id, entry.id));
+  row.querySelector(".cost-delete-button").addEventListener("click", () => deleteCostEntry(project.id, entry.id));
+  return row;
+}
+
+function emptyCostRow() {
+  const row = document.createElement("div");
+  row.className = "empty-cost-row";
+  row.textContent = "Nog geen inhuur of materiaal toegevoegd.";
   return row;
 }
 
@@ -1287,7 +1435,8 @@ els.projectForm.addEventListener("submit", event => {
       ...payload,
       createdAt: nowIso(),
       tasks: [],
-      timeEntries: []
+      timeEntries: [],
+      costEntries: []
     };
     state.data.projects.unshift(project);
     if (folderId) {
@@ -1389,6 +1538,56 @@ els.timeEntryForm?.addEventListener("submit", event => {
   }
   project.updatedAt = nowIso();
   els.timeEntryDialog.close();
+  saveState().catch(showError);
+});
+els.closeCostEntryButton?.addEventListener("click", () => els.costEntryDialog.close());
+els.costEntryCancelButton?.addEventListener("click", () => els.costEntryDialog.close());
+els.costEntryForm?.elements.kind.addEventListener("change", syncCostEntryForm);
+els.costEntryForm?.addEventListener("submit", event => {
+  event.preventDefault();
+  const form = new FormData(els.costEntryForm);
+  const project = projectById(els.costEntryForm.dataset.projectId);
+  if (!project) return;
+  const kind = String(form.get("kind") || "thirdParty");
+  const name = String(form.get("name") || "").trim();
+  if (!name) {
+    showError(new Error("Geef deze kostenpost eerst een naam."));
+    els.costEntryForm.elements.name.focus();
+    return;
+  }
+  const vatRate = parseDecimalInput(form.get("vatRate"), 21);
+  if (!Number.isFinite(vatRate) || vatRate < 0) {
+    showError(new Error("Vul een geldig btw-percentage in."));
+    return;
+  }
+  const payload = {
+    kind: kind === "material" ? "material" : "thirdParty",
+    name,
+    hours: kind === "material" ? 0 : parseDecimalInput(form.get("hours"), 0),
+    hourlyRate: kind === "material" ? 0 : parseDecimalInput(form.get("hourlyRate"), 0),
+    amount: kind === "material" ? parseDecimalInput(form.get("amount"), 0) : 0,
+    vatMode: form.get("vatMode") === "incl" ? "incl" : "excl",
+    vatRate,
+    updatedAt: nowIso()
+  };
+  if (payload.kind === "thirdParty" && (!Number.isFinite(payload.hours) || payload.hours <= 0 || !Number.isFinite(payload.hourlyRate) || payload.hourlyRate < 0)) {
+    showError(new Error("Vul geldige uren en een geldige uurprijs in."));
+    return;
+  }
+  if (payload.kind === "material" && (!Number.isFinite(payload.amount) || payload.amount <= 0)) {
+    showError(new Error("Vul een geldig materiaalbedrag in."));
+    return;
+  }
+  project.costEntries = project.costEntries || [];
+  const entryId = els.costEntryForm.dataset.entryId;
+  if (entryId) {
+    const entry = costEntryById(project, entryId);
+    if (entry) Object.assign(entry, payload);
+  } else {
+    project.costEntries.unshift({ id: createId("cost"), createdAt: nowIso(), ...payload });
+  }
+  project.updatedAt = nowIso();
+  els.costEntryDialog.close();
   saveState().catch(showError);
 });
 els.categoryForm?.addEventListener("submit", event => {
@@ -1839,11 +2038,74 @@ function totalProjectMinutes(project) {
 }
 
 function timeEntryAmount(entry) {
+  return timeEntryAmountExcl(entry);
+}
+
+function timeEntryAmountExcl(entry) {
   return (Number(entry?.minutes || 0) / 60) * Number(entry?.hourlyRate || 0);
 }
 
+function timeEntryAmountIncl(entry) {
+  return timeEntryAmountExcl(entry) * (1 + numberValue(entry?.vatRate, 21) / 100);
+}
+
+function costEntryBaseAmount(entry) {
+  return entry?.kind === "material"
+    ? numberValue(entry?.amount)
+    : numberValue(entry?.hours) * numberValue(entry?.hourlyRate);
+}
+
+function costEntryAmountExcl(entry) {
+  const amount = costEntryBaseAmount(entry);
+  const vatFactor = 1 + numberValue(entry?.vatRate, 21) / 100;
+  return entry?.vatMode === "incl" && vatFactor > 0 ? amount / vatFactor : amount;
+}
+
+function costEntryAmountIncl(entry) {
+  const amount = costEntryBaseAmount(entry);
+  const vatFactor = 1 + numberValue(entry?.vatRate, 21) / 100;
+  return entry?.vatMode === "incl" ? amount : amount * vatFactor;
+}
+
+function totalProjectTimeAmount(project) {
+  return (project?.timeEntries || []).reduce((sum, entry) => sum + timeEntryAmountExcl(entry), 0);
+}
+
+function totalProjectTimeAmountIncl(project) {
+  return (project?.timeEntries || []).reduce((sum, entry) => sum + timeEntryAmountIncl(entry), 0);
+}
+
+function totalProjectCostAmount(project) {
+  return (project?.costEntries || []).reduce((sum, entry) => sum + costEntryAmountExcl(entry), 0);
+}
+
+function totalProjectCostAmountIncl(project) {
+  return (project?.costEntries || []).reduce((sum, entry) => sum + costEntryAmountIncl(entry), 0);
+}
+
 function totalProjectAmount(project) {
-  return (project?.timeEntries || []).reduce((sum, entry) => sum + timeEntryAmount(entry), 0);
+  return totalProjectTimeAmount(project) + totalProjectCostAmount(project);
+}
+
+function totalProjectAmountIncl(project) {
+  return totalProjectTimeAmountIncl(project) + totalProjectCostAmountIncl(project);
+}
+
+function formatHours(hours) {
+  const value = Number(hours) || 0;
+  return `${Number.isInteger(value) ? value : value.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}u`;
+}
+
+function numberValue(value, fallback = 0) {
+  const number = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function parseDecimalInput(value, fallback = 0) {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  const number = Number(text.replace(",", "."));
+  return Number.isFinite(number) ? number : Number.NaN;
 }
 
 function timeEntryMeta(entry) {
