@@ -1265,6 +1265,34 @@ button:active {
   font-weight: 850;
 }
 
+.billing-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.billing-summary span {
+  display: grid;
+  gap: 2px;
+  min-width: 86px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.billing-summary small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.billing-summary strong {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
 .time-panel p,
 .empty-panel p {
   margin: 0;
@@ -1280,6 +1308,19 @@ button:active {
   font-size: 0.72rem;
   font-weight: 950;
   white-space: nowrap;
+}
+
+.time-add-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: min(100%, 330px);
+}
+
+.time-add-actions .soft-button {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 0.72rem;
 }
 
 .time-entry-list {
@@ -1327,6 +1368,82 @@ button:active {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 850;
+}
+
+.cost-entry-panel {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.cost-entry-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cost-summary-line {
+  margin: 0;
+  color: var(--ink) !important;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.cost-entry-list {
+  display: grid;
+  gap: 8px;
+}
+
+.cost-entry-row {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.cost-entry-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cost-entry-copy strong,
+.cost-entry-copy small {
+  overflow-wrap: anywhere;
+}
+
+.cost-entry-copy strong {
+  font-size: 0.9rem;
+}
+
+.cost-entry-copy small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.cost-entry-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+}
+
+.cost-entry-controls button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 0.72rem;
+}
+
+.empty-cost-row {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 11px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .time-entry-controls {
