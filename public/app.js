@@ -45,6 +45,7 @@ const els = {
   showTeamTasksToggle: document.getElementById("showTeamTasksToggle"),
   archiveButton: document.getElementById("archiveButton"),
   addTaskButton: document.getElementById("addTaskButton"),
+  addReceiptButton: document.getElementById("addReceiptButton"),
   quickAddButton: document.getElementById("quickAddButton"),
   addProjectButton: document.getElementById("addProjectButton"),
   taskDialog: document.getElementById("taskDialog"),
@@ -85,12 +86,28 @@ const els = {
   thirdPartyCostFields: document.getElementById("thirdPartyCostFields"),
   materialCostFields: document.getElementById("materialCostFields"),
   costEntryPreview: document.getElementById("costEntryPreview"),
+  receiptDialog: document.getElementById("receiptDialog"),
+  receiptForm: document.getElementById("receiptForm"),
+  receiptProjectSelect: document.getElementById("receiptProjectSelect"),
+  receiptCameraInput: document.getElementById("receiptCameraInput"),
+  receiptUploadInput: document.getElementById("receiptUploadInput"),
+  receiptPreviewWrap: document.getElementById("receiptPreviewWrap"),
+  receiptPreview: document.getElementById("receiptPreview"),
+  receiptPhotoHint: document.getElementById("receiptPhotoHint"),
+  saveReceiptPhotoButton: document.getElementById("saveReceiptPhotoButton"),
+  closeReceiptButton: document.getElementById("closeReceiptButton"),
+  receiptCancelButton: document.getElementById("receiptCancelButton"),
   closeArchiveButton: document.getElementById("closeArchiveButton"),
   closeTeamButton: document.getElementById("closeTeamButton"),
   archiveList: document.getElementById("archiveList"),
   connectionList: document.getElementById("connectionList"),
   teamList: document.getElementById("teamList")
 };
+
+let pendingReceiptOriginalFile = null;
+let pendingReceiptUploadFile = null;
+let pendingReceiptImagePromise = null;
+let pendingReceiptPreviewUrl = "";
 
 function createId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -270,6 +287,7 @@ function normalizeProject(project, userIds) {
     timerAlertedAt: project.timerAlertedAt || "",
     timeEntries: (project.timeEntries || []).map(normalizeTimeEntry),
     costEntries: (project.costEntries || []).map(normalizeCostEntry),
+    receipts: (project.receipts || []).map(normalizeReceipt),
     tasks: (project.tasks || []).map(task => normalizeTask(task))
   };
 }
@@ -308,6 +326,23 @@ function normalizeCostEntry(entry) {
     vatRate: vatRate >= 0 ? vatRate : 21,
     createdAt: entry.createdAt || nowIso(),
     updatedAt: entry.updatedAt || entry.createdAt || ""
+  };
+}
+
+function normalizeReceipt(receipt) {
+  const amount = numberValue(receipt.amount);
+  const vatRate = numberValue(receipt.vatRate, 21);
+  return {
+    id: String(receipt.id || createId("receipt")),
+    name: String(receipt.name || "Bonnetje").trim() || "Bonnetje",
+    amount: amount >= 0 ? amount : 0,
+    vatMode: receipt.vatMode === "excl" ? "excl" : "incl",
+    vatRate: vatRate >= 0 ? vatRate : 21,
+    dateLabel: String(receipt.dateLabel || "").trim(),
+    fileName: String(receipt.fileName || "bonnetje.jpg"),
+    mimeType: String(receipt.mimeType || "image/jpeg"),
+    createdAt: receipt.createdAt || nowIso(),
+    updatedAt: receipt.updatedAt || receipt.createdAt || ""
   };
 }
 
@@ -734,6 +769,7 @@ function timeSessionsPanel(project) {
     </div>
     <div class="time-entry-list"></div>
     <div class="cost-entry-panel"></div>
+    <div class="receipts-slot"></div>
   `;
   panel.querySelector(".time-toggle-button").addEventListener("click", () => toggleTimer(project.id));
   panel.querySelector(".time-add-button").addEventListener("click", () => openTimeEntryDialog(project.id));
@@ -743,6 +779,7 @@ function timeSessionsPanel(project) {
   const list = panel.querySelector(".time-entry-list");
   list.replaceChildren(...(entries.length ? entries.map(entry => timeEntryRow(project, entry)) : [emptyTimeRow()]));
   panel.querySelector(".cost-entry-panel").replaceWith(costEntriesPanel(project));
+  panel.querySelector(".receipts-slot").replaceWith(receiptsPanel(project));
   return panel;
 }
 
@@ -819,6 +856,156 @@ function deleteCostEntry(projectId, entryId) {
   saveState().catch(showError);
 }
 
+function openReceiptDialog(projectId = "") {
+  const projects = projectsForCurrentUser();
+  if (!projects.length || !els.receiptDialog) return;
+  resetReceiptDraft();
+  els.receiptProjectSelect.replaceChildren(...projects.map(project => {
+    const option = document.createElement("option");
+    option.value = project.id;
+    option.textContent = project.name;
+    return option;
+  }));
+  const selectedProject = projects.find(project => project.id === projectId)
+    || projects.find(project => project.id === state.activeView.id)
+    || projects[0];
+  els.receiptProjectSelect.value = selectedProject.id;
+  els.receiptForm.elements.vatMode.value = "incl";
+  els.receiptForm.elements.vatRate.value = "21";
+  els.receiptDialog.showModal();
+  els.receiptForm.elements.name.focus();
+}
+
+function resetReceiptDraft() {
+  if (!els.receiptForm) return;
+  if (pendingReceiptPreviewUrl) URL.revokeObjectURL(pendingReceiptPreviewUrl);
+  pendingReceiptOriginalFile = null;
+  pendingReceiptUploadFile = null;
+  pendingReceiptImagePromise = null;
+  pendingReceiptPreviewUrl = "";
+  els.receiptForm.reset();
+  els.receiptPreviewWrap.hidden = true;
+  els.receiptPreview.removeAttribute("src");
+  els.receiptPhotoHint.textContent = "Maak een foto of kies een afbeelding. De foto wordt aan dit project gekoppeld.";
+}
+
+function handleReceiptFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    showError(new Error("Kies een afbeeldingsbestand voor het bonnetje."));
+    return;
+  }
+  if (pendingReceiptPreviewUrl) URL.revokeObjectURL(pendingReceiptPreviewUrl);
+  pendingReceiptOriginalFile = file;
+  pendingReceiptPreviewUrl = URL.createObjectURL(file);
+  els.receiptPreview.src = pendingReceiptPreviewUrl;
+  els.receiptPreviewWrap.hidden = false;
+  els.receiptPhotoHint.textContent = "Foto klaar. Je kunt hem nu bewaren en het bonnetje opslaan.";
+  pendingReceiptImagePromise = optimizeReceiptImage(file).then(optimized => {
+    pendingReceiptUploadFile = optimized;
+    return optimized;
+  });
+}
+
+async function optimizeReceiptImage(file) {
+  if (!window.createImageBitmap && !window.Image) return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = reject;
+      element.src = url;
+    });
+    const maxSide = 1800;
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.78));
+    return blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "bonnetje"}.jpg`, { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function saveReceiptPhotoToDevice() {
+  const file = pendingReceiptOriginalFile;
+  if (!file) return;
+  try {
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: "Planny bonnetje" });
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+  }
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(file);
+  link.download = file.name || "bonnetje.jpg";
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  els.receiptPhotoHint.textContent = "De foto is klaargezet om te bewaren. Kies in je telefoon voor Bewaar in Foto's.";
+}
+
+async function saveReceipt() {
+  const formData = new FormData(els.receiptForm);
+  const image = pendingReceiptImagePromise ? await pendingReceiptImagePromise : pendingReceiptUploadFile;
+  if (!image) {
+    showError(new Error("Maak eerst een foto of kies een bonnetje."));
+    return;
+  }
+  const name = String(formData.get("name") || "").trim();
+  const amount = parseDecimalInput(formData.get("amount"), Number.NaN);
+  const vatRate = parseDecimalInput(formData.get("vatRate"), 21);
+  if (!name) {
+    showError(new Error("Geef het bonnetje eerst een omschrijving."));
+    els.receiptForm.elements.name.focus();
+    return;
+  }
+  if (!Number.isFinite(amount) || amount < 0) {
+    showError(new Error("Vul een geldig bedrag in."));
+    els.receiptForm.elements.amount.focus();
+    return;
+  }
+  if (!Number.isFinite(vatRate) || vatRate < 0) {
+    showError(new Error("Vul een geldig btw-percentage in."));
+    return;
+  }
+  const payload = new FormData();
+  payload.set("projectId", String(formData.get("projectId") || ""));
+  payload.set("name", name);
+  payload.set("amount", String(amount));
+  payload.set("vatMode", formData.get("vatMode") === "excl" ? "excl" : "incl");
+  payload.set("vatRate", String(vatRate));
+  payload.set("dateLabel", String(formData.get("dateLabel") || "").trim());
+  payload.set("photo", image, image.name || "bonnetje.jpg");
+  const response = await fetch("/api/receipts", { method: "POST", body: payload });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || "Het bonnetje kon niet worden opgeslagen.");
+  state.data = normalizeState(body.state);
+  els.receiptDialog.close();
+  resetReceiptDraft();
+  render();
+}
+
+async function deleteReceipt(projectId, receiptId) {
+  const project = projectById(projectId);
+  if (!project || !confirm("Dit bonnetje verwijderen?")) return;
+  try {
+    const response = await fetch(`/api/receipts/${encodeURIComponent(receiptId)}`, { method: "DELETE" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Het bonnetje kon niet worden verwijderd.");
+    state.data = normalizeState(body.state);
+    render();
+  } catch (error) {
+    showError(error);
+  }
+}
+
 function costEntriesPanel(project) {
   const panel = document.createElement("section");
   panel.className = "cost-entry-panel";
@@ -868,6 +1055,59 @@ function emptyCostRow() {
   const row = document.createElement("div");
   row.className = "empty-cost-row";
   row.textContent = "Nog geen inhuur of materiaal toegevoegd.";
+  return row;
+}
+
+function receiptsPanel(project) {
+  const panel = document.createElement("section");
+  panel.className = "receipts-panel";
+  const entries = project.receipts || [];
+  const totalExcl = totalProjectReceiptAmount(project);
+  const totalIncl = totalProjectReceiptAmountIncl(project);
+  panel.innerHTML = `
+    <div class="receipts-panel-head">
+      <div>
+        <p class="eyebrow">Bonnetjes</p>
+        <p class="cost-summary-line">${escapeHtml(formatCurrency(totalExcl))} excl. · ${escapeHtml(formatCurrency(totalIncl))} incl.</p>
+      </div>
+      <button class="soft-button receipt-add-button" type="button">+ Bon</button>
+    </div>
+    <div class="receipt-list"></div>
+  `;
+  panel.querySelector(".receipt-add-button").addEventListener("click", () => openReceiptDialog(project.id));
+  const list = panel.querySelector(".receipt-list");
+  list.replaceChildren(...(entries.length ? entries.map(entry => receiptRow(project, entry)) : [emptyReceiptRow()]));
+  return panel;
+}
+
+function receiptRow(project, entry) {
+  const row = document.createElement("article");
+  row.className = "receipt-row";
+  const amountExcl = receiptAmountExcl(entry);
+  const amountIncl = receiptAmountIncl(entry);
+  const imageUrl = `/api/receipts/${encodeURIComponent(entry.id)}`;
+  row.innerHTML = `
+    <a class="receipt-thumb" href="${imageUrl}" target="_blank" rel="noopener" title="Bonnetje bekijken">
+      <img src="${imageUrl}" alt="Bonnetje: ${escapeHtml(entry.name)}" loading="lazy" />
+    </a>
+    <div class="receipt-copy">
+      <strong>${escapeHtml(entry.name)}</strong>
+      <small>${escapeHtml(entry.dateLabel || "Zonder datum")} · ${entry.vatMode === "incl" ? "ingevoerd incl. btw" : "ingevoerd excl. btw"}</small>
+      <small>${escapeHtml(formatCurrency(amountExcl))} excl. btw · ${escapeHtml(formatCurrency(amountIncl))} incl. btw</small>
+    </div>
+    <div class="receipt-controls">
+      <a class="soft-button receipt-view-button" href="${imageUrl}" target="_blank" rel="noopener">Bekijk</a>
+      <button class="danger-button receipt-delete-button" type="button">Verwijder</button>
+    </div>
+  `;
+  row.querySelector(".receipt-delete-button").addEventListener("click", () => deleteReceipt(project.id, entry.id));
+  return row;
+}
+
+function emptyReceiptRow() {
+  const row = document.createElement("div");
+  row.className = "empty-receipt-row";
+  row.textContent = "Nog geen bonnetjes toegevoegd.";
   return row;
 }
 
@@ -1590,6 +1830,25 @@ els.costEntryForm?.addEventListener("submit", event => {
   els.costEntryDialog.close();
   saveState().catch(showError);
 });
+els.closeReceiptButton?.addEventListener("click", () => {
+  els.receiptDialog.close();
+  resetReceiptDraft();
+});
+els.receiptCancelButton?.addEventListener("click", () => {
+  els.receiptDialog.close();
+  resetReceiptDraft();
+});
+els.receiptCameraInput?.addEventListener("change", event => handleReceiptFile(event.target.files?.[0]));
+els.receiptUploadInput?.addEventListener("change", event => handleReceiptFile(event.target.files?.[0]));
+els.saveReceiptPhotoButton?.addEventListener("click", saveReceiptPhotoToDevice);
+els.receiptForm?.addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    await saveReceipt();
+  } catch (error) {
+    showError(error);
+  }
+});
 els.categoryForm?.addEventListener("submit", event => {
   event.preventDefault();
   const project = projectById(els.categoryForm.dataset.projectId);
@@ -1606,6 +1865,7 @@ els.categoryForm?.addEventListener("submit", event => {
 });
 
 els.addTaskButton.addEventListener("click", () => openTaskDialog(taskDefaultsFromView()));
+els.addReceiptButton?.addEventListener("click", () => openReceiptDialog(taskDefaultsFromView().projectId || ""));
 els.mobileOptionsButton?.addEventListener("click", () => {
   const expanded = els.mobileOptionsButton.getAttribute("aria-expanded") === "true";
   els.mobileOptionsButton.setAttribute("aria-expanded", String(!expanded));
@@ -2067,6 +2327,18 @@ function costEntryAmountIncl(entry) {
   return entry?.vatMode === "incl" ? amount : amount * vatFactor;
 }
 
+function receiptAmountExcl(entry) {
+  const amount = numberValue(entry?.amount);
+  const vatFactor = 1 + numberValue(entry?.vatRate, 21) / 100;
+  return entry?.vatMode === "excl" ? amount : (vatFactor > 0 ? amount / vatFactor : amount);
+}
+
+function receiptAmountIncl(entry) {
+  const amount = numberValue(entry?.amount);
+  const vatFactor = 1 + numberValue(entry?.vatRate, 21) / 100;
+  return entry?.vatMode === "excl" ? amount * vatFactor : amount;
+}
+
 function totalProjectTimeAmount(project) {
   return (project?.timeEntries || []).reduce((sum, entry) => sum + timeEntryAmountExcl(entry), 0);
 }
@@ -2083,12 +2355,20 @@ function totalProjectCostAmountIncl(project) {
   return (project?.costEntries || []).reduce((sum, entry) => sum + costEntryAmountIncl(entry), 0);
 }
 
+function totalProjectReceiptAmount(project) {
+  return (project?.receipts || []).reduce((sum, entry) => sum + receiptAmountExcl(entry), 0);
+}
+
+function totalProjectReceiptAmountIncl(project) {
+  return (project?.receipts || []).reduce((sum, entry) => sum + receiptAmountIncl(entry), 0);
+}
+
 function totalProjectAmount(project) {
-  return totalProjectTimeAmount(project) + totalProjectCostAmount(project);
+  return totalProjectTimeAmount(project) + totalProjectCostAmount(project) + totalProjectReceiptAmount(project);
 }
 
 function totalProjectAmountIncl(project) {
-  return totalProjectTimeAmountIncl(project) + totalProjectCostAmountIncl(project);
+  return totalProjectTimeAmountIncl(project) + totalProjectCostAmountIncl(project) + totalProjectReceiptAmountIncl(project);
 }
 
 function formatHours(hours) {
