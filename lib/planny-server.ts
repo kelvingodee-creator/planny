@@ -48,6 +48,8 @@ type PlannyState = {
 
 const stateKey = "main";
 const sessionCookie = "planny_session";
+const sessionDurationSeconds = 30 * 24 * 60 * 60;
+const sessionDurationMs = sessionDurationSeconds * 1000;
 
 function db(): D1 {
   if (!env.DB) throw new Error("Database binding ontbreekt.");
@@ -276,15 +278,26 @@ export async function sessionUser(request: Request) {
   if (!token) return null;
   const row = await db().prepare("SELECT user_id as userId, expires_at as expiresAt FROM planny_sessions WHERE token = ?").bind(token).first<{ userId: string; expiresAt: string }>();
   if (!row || new Date(row.expiresAt) <= new Date()) return null;
+  await db().prepare("UPDATE planny_sessions SET expires_at = ? WHERE token = ?").bind(new Date(Date.now() + sessionDurationMs).toISOString(), token).run();
   return row.userId;
 }
 
 export async function createSession(userId: string) {
   await ensureTables();
   const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + sessionDurationMs).toISOString();
   await db().prepare("INSERT INTO planny_sessions (token, user_id, expires_at) VALUES (?, ?, ?)").bind(token, userId, expiresAt).run();
-  return `${sessionCookie}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`;
+  return `${sessionCookie}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionDurationSeconds}`;
+}
+
+export async function refreshSession(request: Request) {
+  const token = parseCookies(request)[sessionCookie];
+  if (!token) return null;
+  const row = await db().prepare("SELECT user_id as userId, expires_at as expiresAt FROM planny_sessions WHERE token = ?").bind(token).first<{ userId: string; expiresAt: string }>();
+  if (!row || new Date(row.expiresAt) <= new Date()) return null;
+  const expiresAt = new Date(Date.now() + sessionDurationMs).toISOString();
+  await db().prepare("UPDATE planny_sessions SET expires_at = ? WHERE token = ?").bind(expiresAt, token).run();
+  return `${sessionCookie}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionDurationSeconds}`;
 }
 
 export async function clearSession(request: Request) {
