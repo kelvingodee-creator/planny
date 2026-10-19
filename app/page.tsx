@@ -84,6 +84,7 @@ export default function Home() {
               <button className="soft-button" id="teamButton" type="button">Team</button>
               <button className="soft-button" id="addProjectButton" type="button">+ Project</button>
               <button className="primary-button" id="addTaskButton" type="button">+ Taak</button>
+              <button className="soft-button" id="addReceiptButton" type="button">+ Bonnetje</button>
               <button className="soft-button settings-top-button" id="settingsButton" type="button" title="Instellingen" aria-label="Instellingen">⚙</button>
               <button className="soft-button logout-top-button" id="logoutButton" type="button">Uitloggen</button>
               <button className="soft-button mobile-options-button" id="mobileOptionsButton" type="button" aria-expanded="false">Meer</button>
@@ -336,6 +337,69 @@ export default function Home() {
               <span className="dialog-spacer"></span>
               <button className="soft-button" id="costEntryCancelButton" type="button">Annuleer</button>
               <button className="primary-button" type="submit">Bewaar post</button>
+            </div>
+          </form>
+        </dialog>
+
+        <dialog id="receiptDialog">
+          <form method="dialog" className="dialog-card receipt-dialog-card" id="receiptForm">
+            <div className="dialog-head">
+              <div>
+                <p className="eyebrow">Uitgaven</p>
+                <h2>Bonnetje toevoegen</h2>
+              </div>
+              <button className="icon-button" id="closeReceiptButton" type="button" aria-label="Sluiten">×</button>
+            </div>
+            <label>
+              <span>Project</span>
+              <select name="projectId" id="receiptProjectSelect" required></select>
+            </label>
+            <div className="receipt-capture-actions">
+              <label className="receipt-capture-button primary-button">
+                <span>Maak foto</span>
+                <input id="receiptCameraInput" type="file" accept="image/*" capture="environment" />
+              </label>
+              <label className="receipt-capture-button soft-button">
+                <span>Upload foto</span>
+                <input id="receiptUploadInput" type="file" accept="image/*" />
+              </label>
+            </div>
+            <div className="receipt-preview-wrap" id="receiptPreviewWrap" hidden>
+              <img id="receiptPreview" alt="Voorbeeld van het bonnetje" />
+              <button className="soft-button" id="saveReceiptPhotoButton" type="button">Bewaar foto in Foto&apos;s</button>
+            </div>
+            <p className="dialog-copy" id="receiptPhotoHint">Maak een foto of kies een afbeelding. De foto wordt aan dit project gekoppeld.</p>
+            <label>
+              <span>Omschrijving</span>
+              <input name="name" required maxLength={100} placeholder="Bijvoorbeeld Gamma verf" />
+            </label>
+            <div className="field-row">
+              <label>
+                <span>Bedrag</span>
+                <input name="amount" type="text" inputMode="decimal" required placeholder="bijv. 42,50" autoComplete="off" />
+              </label>
+              <label>
+                <span>Bedrag ingevoerd als</span>
+                <select name="vatMode">
+                  <option value="incl">Incl. btw</option>
+                  <option value="excl">Excl. btw</option>
+                </select>
+              </label>
+            </div>
+            <div className="field-row">
+              <label>
+                <span>Btw-percentage</span>
+                <input name="vatRate" type="text" inputMode="decimal" placeholder="21" value="21" autoComplete="off" />
+              </label>
+              <label>
+                <span>Datum <em>(optioneel)</em></span>
+                <input name="dateLabel" type="text" placeholder="bijv. 19 okt" autoComplete="off" />
+              </label>
+            </div>
+            <div className="dialog-actions">
+              <span className="dialog-spacer"></span>
+              <button className="soft-button" id="receiptCancelButton" type="button">Annuleer</button>
+              <button className="primary-button" type="submit">Bewaar bonnetje</button>
             </div>
           </form>
         </dialog>
