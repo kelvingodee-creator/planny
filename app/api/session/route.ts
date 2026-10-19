@@ -1,4 +1,4 @@
-import { json, readState, sessionUser } from "../../../lib/planny-server";
+import { json, readState, refreshSession, sessionUser } from "../../../lib/planny-server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +11,5 @@ export async function GET(request: Request) {
   const { passwordHash, passwordSalt, ...safeUser } = user;
   void passwordHash;
   void passwordSalt;
-  return json({ user: safeUser });
+  return json({ user: safeUser }, { headers: { "set-cookie": await refreshSession(request) || "" } });
 }
