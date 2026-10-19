@@ -79,6 +79,17 @@ export function initials(value: string) {
     .toUpperCase();
 }
 
+type ReceiptImageRow = {
+  id: string;
+  projectId: string;
+  ownerId: string;
+  fileName: string;
+  mimeType: string;
+  imageData: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function parseCookies(request: Request) {
   return Object.fromEntries(String(request.headers.get("cookie") || "").split(";").map(part => {
     const [key, ...rest] = part.trim().split("=");
@@ -146,7 +157,27 @@ async function ensureTables() {
   await d1.batch([
     d1.prepare("CREATE TABLE IF NOT EXISTS planny_state (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
     d1.prepare("CREATE TABLE IF NOT EXISTS planny_sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+    d1.prepare("CREATE TABLE IF NOT EXISTS planny_receipts (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, owner_id TEXT NOT NULL, file_name TEXT NOT NULL, mime_type TEXT NOT NULL, image_data TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
   ]);
+}
+
+export async function writeReceiptImage(row: ReceiptImageRow) {
+  await ensureTables();
+  await db().prepare(
+    "INSERT INTO planny_receipts (id, project_id, owner_id, file_name, mime_type, image_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(row.id, row.projectId, row.ownerId, row.fileName, row.mimeType, row.imageData, row.createdAt, row.updatedAt).run();
+}
+
+export async function readReceiptImage(id: string) {
+  await ensureTables();
+  return db().prepare(
+    "SELECT id, project_id as projectId, owner_id as ownerId, file_name as fileName, mime_type as mimeType, image_data as imageData, created_at as createdAt, updated_at as updatedAt FROM planny_receipts WHERE id = ?"
+  ).bind(id).first<ReceiptImageRow>();
+}
+
+export async function deleteReceiptImage(id: string) {
+  await ensureTables();
+  await db().prepare("DELETE FROM planny_receipts WHERE id = ?").bind(id).run();
 }
 
 export async function readState(): Promise<PlannyState> {
